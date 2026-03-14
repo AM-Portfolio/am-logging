@@ -61,18 +61,27 @@ jobs:
           $sha = $env:GITHUB_SHA.Substring(0,7)
           echo "sha_short=$sha" >> $env:GITHUB_OUTPUT
 
+      - name: Ensure namespace exists
+        shell: powershell
+        run: |
+          $ns = "am-apps-preprod"
+          if (-not (kubectl get namespace $ns -o name 2>$null)) {
+            kubectl create namespace $ns
+          }
+
       - name: Deploy logging service to K8s
         shell: powershell
         run: |
           helm upgrade --install am-logging ./helm `
-            --namespace am-logging-preprod `
+            --namespace am-apps-preprod `
+            --create-namespace `
             --set global.image.registry="${{ env.REGISTRY }}/${{ env.OWNER }}" `
             --set global.image.tag="${{ github.run_id }}"
 
       - name: Verify Rollout
         shell: powershell
         run: |
-          $ns = "am-logging-preprod"
+          $ns = "am-apps-preprod"
           $deployments = @("am-logging-svc")
           $timeout = "10m"
           $failed = $false
@@ -103,7 +112,7 @@ jobs:
         shell: powershell
         run: |
           Write-Host "🔍 Deployment failed. Full pod diagnostics:"
-          kubectl get pods -n am-logging-preprod -o wide
+          kubectl get pods -n am-apps-preprod -o wide
           Write-Host ""
           Write-Host "--- Describe: am-logging-svc ---"
-          kubectl describe deployment/am-logging-svc -n am-logging-preprod 2>&1 | Select-Object -Last 30
+          kubectl describe deployment/am-logging-svc -n am-apps-preprod 2>&1 | Select-Object -Last 30
