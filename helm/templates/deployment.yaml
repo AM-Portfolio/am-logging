@@ -20,16 +20,9 @@ spec:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: {{ .Values.global.vault.role | quote }}
         vault.hashicorp.com/auth-path: {{ .Values.global.vault.authPath | quote }}
-        vault.hashicorp.com/agent-inject-secret-loki: {{ .Values.global.vault.secrets.loki | quote }}
-        vault.hashicorp.com/agent-inject-template-loki: |
-          {{`{{`}}- with secret {{ .Values.global.vault.secrets.loki | quote }} {{`}}` }}
-          {{`{{`}}- range $k, $v := .Data.data {{`}}` }}
-          export {{`{{`}} $k {{`}}` }}="{{`{{`}} $v {{`}}` }}"
-          {{`{{`}} end {{`}}` }}
-          {{`{{`}} end {{`}}` }}
         {{- end }}
     spec:
-      serviceAccountName: {{ .Chart.Name }}-vault-sa
+      serviceAccountName: am-common-vault-sa
       containers:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.global.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
