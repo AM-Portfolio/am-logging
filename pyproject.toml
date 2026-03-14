@@ -32,6 +32,7 @@ pytest-asyncio = "^0.21.1"
 generate-sdks = "generator.generate:generate_libraries"
 generate-and-sync = "scripts.generate_and_sync:main"
 start-service = "service.main:main"
+deploy-local = "scripts.deploy_local:main"
 
 [build-system]
 requires = ["poetry-core"]
