@@ -17,9 +17,9 @@ global:
     tag: "latest"
 
   vault:
-    enabled: false
+    enabled: true
     address: "http://vault.vault.svc.cluster.local:8200"
-    role: "am-logging"
+    role: "am-auth"
     authPath: "auth/kubernetes"
     # KV v2 paths for secrets
     secrets:
