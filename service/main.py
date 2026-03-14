@@ -55,7 +55,7 @@ class ExceptionInfo(BaseModel):
     stack: str
 
 class LogEntry(BaseModel):
-    trace_id: uuid.UUID
+    trace_id: str
     span_id: str
     service: str
     timestamp: datetime.datetime
