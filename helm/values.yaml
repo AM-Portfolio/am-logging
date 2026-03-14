@@ -6,7 +6,7 @@
 # ==============================================================================
 
 environment: local
-namespace: am-logging-preprod
+namespace: am-apps-preprod
 
 # Global configuration emulating the am-auth pattern
 global:
