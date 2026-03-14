@@ -1,0 +1,135 @@
+{
+	"info": {
+		"_postman_id": "7f9b8c0a-1d2e-4b3c-9d8e-7f6a5b4c3d2e",
+		"name": "AM Centralized Logging Service",
+		"description": "Collection for testing the Centralized Logging Service (CLS) API.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Ingest Log - Technical (INFO)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"trace_id\": \"{{$guid}}\",\n    \"span_id\": \"root\",\n    \"service\": \"postman-tester\",\n    \"timestamp\": \"{{$isoTimestamp}}\",\n    \"log_type\": \"TECHNICAL\",\n    \"level\": \"INFO\",\n    \"payload\": {\n        \"message\": \"System startup complete\"\n    },\n    \"metadata\": {\n        \"env\": \"local\"\n    }\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/v1/logs",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"v1",
+						"logs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Ingest Log - Business (Event)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"trace_id\": \"{{$guid}}\",\n    \"span_id\": \"txn-123\",\n    \"service\": \"order-service\",\n    \"timestamp\": \"{{$isoTimestamp}}\",\n    \"log_type\": \"BUSINESS\",\n    \"level\": \"INFO\",\n    \"payload\": {\n        \"order_id\": \"ORD-999\",\n        \"amount\": 1500.50,\n        \"currency\": \"USD\"\n    },\n    \"context\": {\n        \"class\": \"OrderProcessor\",\n        \"method\": \"processOrder\"\n    }\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/v1/logs",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"v1",
+						"logs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Ingest Log - Audit (Security)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"trace_id\": \"{{$guid}}\",\n    \"span_id\": \"auth-99\",\n    \"service\": \"am-auth\",\n    \"timestamp\": \"{{$isoTimestamp}}\",\n    \"log_type\": \"AUDIT\",\n    \"level\": \"WARN\",\n    \"payload\": {\n        \"event\": \"failed_login\",\n        \"username\": \"admin\"\n    },\n    \"context\": {\n        \"class\": \"LoginUseCase\",\n        \"method\": \"execute\",\n        \"inputs\": {\n            \"email\": \"admin@example.com\",\n            \"password\": \"****\"\n        },\n        \"latency_ms\": 45.3\n    }\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/v1/logs",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"v1",
+						"logs"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}

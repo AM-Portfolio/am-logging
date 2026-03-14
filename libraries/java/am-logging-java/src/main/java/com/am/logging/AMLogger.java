@@ -1,0 +1,38 @@
+package com.am.logging;
+
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+/**
+ * Generated Pattern: [{timestamp}] | [{service}] | [{trace_id}:{span_id}] | [{level}] | [{class}.{method}] | {message} | {context}
+ */
+public class AMLogger {
+    private String serviceName;
+    private String clsUrl;
+    private static final ObjectMapper mapper = new ObjectMapper();
+
+    public AMLogger(String serviceName, String clsUrl) {
+        this.serviceName = serviceName;
+        this.clsUrl = clsUrl;
+    }
+
+    public void log(String level, String message, Map<String, Object> context) {
+        String timestamp = Instant.now().toString();
+        String traceId = UUID.randomUUID().toString();
+        String spanId = "root";
+        
+        // Enforcing Pattern: [{timestamp}] | [{service}] | [{trace_id}:{span_id}] | [{level}] | [{class}.{method}] | {message} | {context}
+        String formatted = String.format("[%s] | [%s] | [%s:%s] | [%s] | [%s.%s] | %s | %s",
+            timestamp, serviceName, traceId, spanId, level, "Global", "method", message, serialize(context));
+            
+        System.out.println(formatted);
+        // CLS push implementation would go here (using Spring RestTemplate or similar)
+    }
+
+    private String serialize(Map<String, Object> context) {
+        try { return mapper.writeValueAsString(context); } 
+        catch (Exception e) { return "{}"; }
+    }
+}

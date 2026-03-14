@@ -1,0 +1,36 @@
+[project]
+name = "am-logging"
+version = "0.1.0"
+description = "Centralized Logging Ecosystem for AM Portfolio"
+authors = [{ name = "Antigravity Agent", email = "agent@google.com" }]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "redis>=5.0.1",
+    "motor>=3.3.2",
+    "pydantic[email]>=2.5.3",
+    "python-dotenv>=1.0.1",
+    "python-multipart>=0.0.6",
+    "httpx>=0.26.0",
+    "jinja2>=3.1.2",
+    "pyyaml>=6.0.1",
+]
+
+[tool.poetry]
+packages = [
+    { include = "service" },
+    { include = "generator" }
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.21.1"
+
+[project.scripts]
+generate-sdks = "generator.generate:generate_libraries"
+start-service = "service.main:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

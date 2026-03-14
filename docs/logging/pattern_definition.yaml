@@ -1,0 +1,43 @@
+# Logging Pattern Definition
+# This YAML serves as the master configuration for generating AMLogger libraries.
+
+pattern_version: 1.0.0
+
+# The standard string format for console/file output
+# Each language generator must implement this specific string concatenation.
+output_format: "[{timestamp}] | [{service}] | [{trace_id}:{span_id}] | [{level}] | [{class}.{method}] | {message} | {context}"
+
+mandatory_fields:
+  - name: timestamp
+    format: "ISO-8601 UTC"
+  - name: service
+    source: "Environment Variable (AM_SERVICE_NAME)"
+  - name: trace_id
+    source: "Context Variable / Distributed Tracer (e.g., W3C Trace Context)"
+  - name: span_id
+    source: "Context Variable / ThreadLocal (Generated per method/request)"
+  - name: level
+    options: [DEBUG, INFO, WARN, ERROR, CRITICAL]
+  - name: class
+    source: "Reflection / Runtime Inspection"
+  - name: method
+    source: "Reflection / Runtime Inspection"
+  - name: message
+    type: string
+  - name: context
+    type: json_object
+
+error_handling_pattern:
+  include_stack_trace: true
+  include_local_variables: true  # For Python (via inspect)
+  auto_redact_fields: ["password", "token", "secret", "cvv"]
+
+generation_targets:
+  python:
+    base_class: "logging.Handler"
+    decorator: "@trace_activity"
+  java:
+    base_class: "LogbackAppender"
+    annotation: "@Traceable"
+  dart:
+    base_class: "DioInterceptor"

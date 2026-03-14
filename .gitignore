@@ -1,0 +1,22 @@
+# Local environment variables
+.env
+
+# Python build artifacts and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+.python-version
+poetry.lock
+
+# Documentation - Exclude temporary implementation plans as requested
+docs/logging/*.md
+!docs/logging/shared_data_model.md # Keep the data model as it's core architecture
+
+# Helm caches/dependency charts
+helm/charts/
+
+# OS specific files
+.DS_Store
+Thumbs.db
