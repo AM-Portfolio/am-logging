@@ -32,7 +32,6 @@ replicaCount: 1
 
 image:
   repository: am-logging-svc
-  tag: "1.0.0"
 
 service:
   type: ClusterIP
