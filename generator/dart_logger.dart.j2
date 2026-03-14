@@ -1,5 +1,7 @@
+// DO NOT EDIT: THIS FILE IS AUTO-GENERATED
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
@@ -9,15 +11,21 @@ import 'package:uuid/uuid.dart';
 class AMLogger {
   final String serviceName;
   final String clsUrl;
+  final bool persistToDb;
   final _uuid = Uuid();
 
-  AMLogger({required this.serviceName, required this.clsUrl});
+  AMLogger({
+    required this.serviceName, 
+    required this.clsUrl, 
+    bool? persistToDb
+  }) : this.persistToDb = persistToDb ?? (Platform.environment['AM_LOGGING_PERSIST_TO_DB']?.toLowerCase() == 'true');
 
-  Future<void> log(String level, String message, {Map<String, dynamic>? context}) async {
+  Future<void> log(String level, String message, {Map<String, dynamic>? context, bool? persistToDb}) async {
     final timestamp = DateTime.now().toUtc().toIso8601String();
     final traceId = _uuid.v4();
     final spanId = "root";
     final ctx = context ?? {};
+    final actualPersist = persistToDb ?? this.persistToDb;
 
     // Enforcing Pattern: {{ output_format }}
     final formatted = "[$timestamp] | [$serviceName] | [$traceId:$spanId] | [$level] | [Global.method] | $message | ${jsonEncode(ctx)}";
@@ -34,6 +42,9 @@ class AMLogger {
       "level": level,
       "payload": {"message": message},
       "context": ctx,
+      "metadata": {
+        "persist_to_db": actualPersist.toString()
+      }
     });
   }
 

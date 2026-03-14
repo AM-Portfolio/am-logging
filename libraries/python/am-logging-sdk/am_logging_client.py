@@ -1,3 +1,4 @@
+# DO NOT EDIT: THIS FILE IS AUTO-GENERATED FROM OPENAPI SPEC
 """
 Auto-generated Python SDK for AM Logging API
 Generated from OpenAPI spec version 1.0.0
@@ -5,15 +6,21 @@ Generated from OpenAPI spec version 1.0.0
 
 import httpx
 import asyncio
+import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 class AMLoggingClient:
     """Fire-and-forget logging client for AM Logging Service"""
     
-    def __init__(self, base_url: str = "http://am-logging-svc/v1", timeout: float = 2.0):
+    def __init__(self, base_url: str = "http://am-logging-svc/v1", timeout: float = 2.0, persist_to_db: Optional[bool] = None):
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
+        # Default to environment variable AM_LOGGING_PERSIST_TO_DB or False
+        if persist_to_db is None:
+            self.persist_to_db = os.getenv("AM_LOGGING_PERSIST_TO_DB", "False").lower() == "true"
+        else:
+            self.persist_to_db = persist_to_db
         
     async def _send_log_async(self, log_entry: Dict[str, Any]) -> bool:
         """Send log asynchronously - fire and forget"""
@@ -32,7 +39,7 @@ class AMLoggingClient:
     
     def _validate_log_entry(self, log_entry: Dict[str, Any]) -> bool:
         """Validate log entry against OpenAPI schema"""
-        required_fields = ['trace_id', 'span_id', 'service', 'timestamp', 'log_type', 'level', 'payload']
+        required_fields = set(['trace_id', 'span_id', 'service', 'timestamp', 'log_type', 'level', 'payload'])
         return required_fields.issubset(set(log_entry.keys()))
     
     def create_log_entry(
@@ -45,9 +52,16 @@ class AMLoggingClient:
         log_type: str = "TECHNICAL",
         context: Optional[Dict[str, Any]] = None,
         exception: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, str]] = None
+        metadata: Optional[Dict[str, str]] = None,
+        persist_to_db: Optional[bool] = None
     ) -> Dict[str, Any]:
         """Create a properly formatted log entry"""
+        metadata = metadata or {}
+        if persist_to_db is not None:
+            metadata["persist_to_db"] = str(persist_to_db).lower()
+        elif self.persist_to_db is not None:
+            metadata["persist_to_db"] = str(self.persist_to_db).lower()
+
         return {
             "trace_id": trace_id,
             "span_id": span_id,
@@ -88,11 +102,9 @@ class LoggerMixin:
             service=self._service_name,
             level=level,
             payload={"message": message},
-            context={
-                "class": class_name,
-                "method": method_name,
-                **{k: v for k, v in kwargs.items() if k not in ['trace_id', 'span_id']}
-            }
+            context={"class": class_name, "method": method_name},
+            metadata=kwargs.get('metadata'),
+            persist_to_db=kwargs.get('persist_to_db')
         )
         
         self._log_client.send_log(log_entry)

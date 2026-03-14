@@ -6,28 +6,37 @@ from jinja2 import Template
 
 def generate_sdk_from_openapi():
     """Generate Python SDK from OpenAPI spec"""
-    openapi_spec_path = "c:/Users/user/Documents/am-repos/am-logging/docs/logging/logging_api_spec.yaml"
-    sdk_output_path = "c:/Users/user/Documents/am-repos/am-logging/libraries/python/am-logging-sdk/am_logging_client.py"
+    # Use paths relative to the project root
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    openapi_spec_path = os.path.join(base_dir, "docs", "logging", "logging_api_spec.yaml")
+    sdk_output_path = os.path.join(base_dir, "libraries", "python", "am-logging-sdk", "am_logging_client.py")
     
     with open(openapi_spec_path, "r") as f:
         spec = yaml.safe_load(f)
     
-    sdk_code = f'''"""
+    sdk_code = f'''# DO NOT EDIT: THIS FILE IS AUTO-GENERATED FROM OPENAPI SPEC
+"""
 Auto-generated Python SDK for AM Logging API
 Generated from OpenAPI spec version {spec['info']['version']}
 """
 
 import httpx
 import asyncio
+import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 class AMLoggingClient:
     """Fire-and-forget logging client for AM Logging Service"""
     
-    def __init__(self, base_url: str = "http://am-logging-svc/v1", timeout: float = 2.0):
+    def __init__(self, base_url: str = "http://am-logging-svc/v1", timeout: float = 2.0, persist_to_db: Optional[bool] = None):
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
+        # Default to environment variable AM_LOGGING_PERSIST_TO_DB or False
+        if persist_to_db is None:
+            self.persist_to_db = os.getenv("AM_LOGGING_PERSIST_TO_DB", "False").lower() == "true"
+        else:
+            self.persist_to_db = persist_to_db
         
     async def _send_log_async(self, log_entry: Dict[str, Any]) -> bool:
         """Send log asynchronously - fire and forget"""
@@ -46,7 +55,7 @@ class AMLoggingClient:
     
     def _validate_log_entry(self, log_entry: Dict[str, Any]) -> bool:
         """Validate log entry against OpenAPI schema"""
-        required_fields = {spec['components']['schemas']['LogEntry']['required']}
+        required_fields = set({spec['components']['schemas']['LogEntry']['required']})
         return required_fields.issubset(set(log_entry.keys()))
     
     def create_log_entry(
@@ -59,9 +68,16 @@ class AMLoggingClient:
         log_type: str = "TECHNICAL",
         context: Optional[Dict[str, Any]] = None,
         exception: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, str]] = None
+        metadata: Optional[Dict[str, str]] = None,
+        persist_to_db: Optional[bool] = None
     ) -> Dict[str, Any]:
         """Create a properly formatted log entry"""
+        metadata = metadata or {{}}
+        if persist_to_db is not None:
+            metadata["persist_to_db"] = str(persist_to_db).lower()
+        elif self.persist_to_db is not None:
+            metadata["persist_to_db"] = str(self.persist_to_db).lower()
+
         return {{
             "trace_id": trace_id,
             "span_id": span_id,
@@ -102,11 +118,9 @@ class LoggerMixin:
             service=self._service_name,
             level=level,
             payload={{"message": message}},
-            context={{
-                "class": class_name,
-                "method": method_name,
-                **{{k: v for k, v in kwargs.items() if k not in ['trace_id', 'span_id']}}
-            }}
+            context={{"class": class_name, "method": method_name}},
+            metadata=kwargs.get('metadata'),
+            persist_to_db=kwargs.get('persist_to_db')
         )
         
         self._log_client.send_log(log_entry)
@@ -130,12 +144,14 @@ class LoggerMixin:
     os.makedirs(os.path.dirname(sdk_output_path), exist_ok=True)
     with open(sdk_output_path, "w") as f:
         f.write(sdk_code)
-    print(f"Generated Python SDK from OpenAPI at {sdk_output_path}")
+    print(f"Generated Python SDK from OpenAPI at {{sdk_output_path}}")
     return sdk_output_path
 
 def generate_libraries():
-    # Load pattern definition
-    pattern_file = "c:/Users/user/Documents/am-repos/am-logging/docs/logging/pattern_definition.yaml"
+    # Use paths relative to the project root
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pattern_file = os.path.join(base_dir, "docs", "logging", "pattern_definition.yaml")
+    
     with open(pattern_file, "r") as f:
         pattern_config = yaml.safe_load(f)
     
@@ -145,8 +161,8 @@ def generate_libraries():
     sdk_path = generate_sdk_from_openapi()
     
     # 1. Generate Python
-    py_template_path = "c:/Users/user/Documents/am-repos/am-logging/generator/python_logger.py.j2"
-    py_output_path = "c:/Users/user/Documents/am-repos/am-logging/libraries/python/am-logging-py/am_logging/core.py"
+    py_template_path = os.path.join(base_dir, "generator", "python_logger.py.j2")
+    py_output_path = os.path.join(base_dir, "libraries", "python", "am-logging-py", "am_logging", "core.py")
     
     with open(py_template_path, "r") as f:
         py_template = Template(f.read())
@@ -155,11 +171,11 @@ def generate_libraries():
     os.makedirs(os.path.dirname(py_output_path), exist_ok=True)
     with open(py_output_path, "w") as f:
         f.write(py_code)
-    print(f"Generated Python AMLogger at {py_output_path}")
+    print(f"Generated Python AMLogger at {{py_output_path}}")
 
     # 2. Generate Java
-    java_template_path = "c:/Users/user/Documents/am-repos/am-logging/generator/java_logger.java.j2"
-    java_output_path = "c:/Users/user/Documents/am-repos/am-logging/libraries/java/am-logging-java/src/main/java/com/am/logging/AMLogger.java"
+    java_template_path = os.path.join(base_dir, "generator", "java_logger.java.j2")
+    java_output_path = os.path.join(base_dir, "libraries", "java", "am-logging-java", "src", "main", "java", "com", "am", "logging", "AMLogger.java")
     
     with open(java_template_path, "r") as f:
         java_template = Template(f.read())
@@ -168,11 +184,11 @@ def generate_libraries():
     os.makedirs(os.path.dirname(java_output_path), exist_ok=True)
     with open(java_output_path, "w") as f:
         f.write(java_code)
-    print(f"Generated Java AMLogger at {java_output_path}")
+    print(f"Generated Java AMLogger at {{java_output_path}}")
 
     # 3. Generate Dart/Flutter
-    dart_template_path = "c:/Users/user/Documents/am-repos/am-logging/generator/dart_logger.dart.j2"
-    dart_output_path = "c:/Users/user/Documents/am-repos/am-logging/libraries/dart/am-logging-dart/lib/am_logging.dart"
+    dart_template_path = os.path.join(base_dir, "generator", "dart_logger.dart.j2")
+    dart_output_path = os.path.join(base_dir, "libraries", "dart", "am-logging-dart", "lib", "am_logging.dart")
     
     with open(dart_template_path, "r") as f:
         dart_template = Template(f.read())

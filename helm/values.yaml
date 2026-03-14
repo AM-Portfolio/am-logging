@@ -10,12 +10,14 @@ namespace: am-logging-preprod
 
 # Global configuration emulating the am-auth pattern
 global:
+  isLocal: false
   image:
     registry: ghcr.io/am-portfolio
     pullPolicy: IfNotPresent
     tag: "latest"
 
   vault:
+    enabled: true
     address: "http://vault.vault.svc.cluster.local:8200"
     role: "am-logging"
     authPath: "auth/kubernetes"

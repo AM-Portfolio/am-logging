@@ -20,7 +20,8 @@ dependencies = [
 [tool.poetry]
 packages = [
     { include = "service" },
-    { include = "generator" }
+    { include = "generator" },
+    { include = "scripts" }
 ]
 
 [tool.poetry.group.dev.dependencies]
@@ -29,6 +30,7 @@ pytest-asyncio = "^0.21.1"
 
 [project.scripts]
 generate-sdks = "generator.generate:generate_libraries"
+generate-and-sync = "scripts.generate_and_sync:main"
 start-service = "service.main:main"
 
 [build-system]

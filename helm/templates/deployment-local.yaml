@@ -1,4 +1,4 @@
-{{- if not .Values.global.isLocal }}
+{{- if .Values.global.isLocal }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,21 +15,7 @@ spec:
     metadata:
       labels:
         app: {{ .Chart.Name }}
-      annotations:
-        {{- if .Values.global.vault.enabled }}
-        vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: {{ .Values.global.vault.role | quote }}
-        vault.hashicorp.com/auth-path: {{ .Values.global.vault.authPath | quote }}
-        vault.hashicorp.com/agent-inject-secret-loki: {{ .Values.global.vault.secrets.loki | quote }}
-        vault.hashicorp.com/agent-inject-template-loki: |
-          {{`{{`}}- with secret {{ .Values.global.vault.secrets.loki | quote }} {{`}}` }}
-          {{`{{`}}- range $k, $v := .Data.data {{`}}` }}
-          export {{`{{`}} $k {{`}}` }}="{{`{{`}} $v {{`}}` }}"
-          {{`{{`}} end {{`}}` }}
-          {{`{{`}} end {{`}}` }}
-        {{- end }}
     spec:
-      serviceAccountName: {{ .Chart.Name }}-vault-sa
       containers:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.global.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -39,12 +25,6 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
-            {{- if .Values.global.vault.enabled }}
-            # Source secrets injected by Vault Agent sidecar
-            . /vault/secrets/redis 2>/dev/null || true
-            . /vault/secrets/mongodb 2>/dev/null || true
-            . /vault/secrets/loki 2>/dev/null || true
-            {{- end }}
             exec uvicorn main:app --host 0.0.0.0 --port {{ .Values.service.targetPort }}
         env:
         - name: ENVIRONMENT

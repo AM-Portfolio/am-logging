@@ -148,8 +148,10 @@ async def distribute_log(log_data: dict):
     masked_log = mask_data(log_data)
     print(f"Distributing log: {masked_log['trace_id']}")
     
-    # 2. Persist to MongoDB if BUSINESS or AUDIT
-    if log_data["log_type"] in [LogType.BUSINESS, LogType.AUDIT]:
+    # 2. Persist to MongoDB if BUSINESS or AUDIT (and not explicitly disabled)
+    persist_to_db = log_data.get("metadata", {}).get("persist_to_db", "true").lower() == "true"
+    
+    if persist_to_db and log_data["log_type"] in [LogType.BUSINESS, LogType.AUDIT]:
         try:
             # Check if this is an update (has update_status field)
             if "update_status" in log_data.get("payload", {}):

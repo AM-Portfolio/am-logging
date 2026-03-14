@@ -1,3 +1,4 @@
+# DO NOT EDIT: THIS FILE IS AUTO-GENERATED
 import logging
 import json
 import uuid
@@ -13,9 +14,13 @@ from typing import Any, Dict, Optional, Callable
 # Generated Pattern: [{timestamp}] | [{service}] | [{trace_id}:{span_id}] | [{level}] | [{class}.{method}] | {message} | {context}
 
 class AMLogger:
-    def __init__(self, service_name: str, cls_url: str):
+    def __init__(self, service_name: str, cls_url: str, persist_to_db: Optional[bool] = None):
         self.service_name = service_name
         self.cls_url = cls_url
+        if persist_to_db is None:
+            self.persist_to_db = os.getenv("AM_LOGGING_PERSIST_TO_DB", "False").lower() == "true"
+        else:
+            self.persist_to_db = persist_to_db
         self.logger = logging.getLogger(service_name)
         self.logger.setLevel(logging.INFO)
         if not self.logger.handlers:
@@ -35,10 +40,13 @@ class AMLogger:
             # Fallback to local console if CLS is down (Zero Log Loss strategy)
             self.logger.error(f"Failed to send log to CLS: {e}")
 
-    def log(self, level: str, message: str, context: Optional[dict] = None, trace_id: Optional[str] = None, span_id: Optional[str] = None):
+    def log(self, level: str, message: str, context: Optional[dict] = None, trace_id: Optional[str] = None, span_id: Optional[str] = None, persist_to_db: Optional[bool] = None):
         trace_id = trace_id or str(uuid.uuid4())
         span_id = span_id or "root"
         context = context or {}
+        
+        # Determine actual persistence
+        actual_persist = persist_to_db if persist_to_db is not None else self.persist_to_db
         
         # Get caller info
         frame = inspect.currentframe().f_back
@@ -62,6 +70,9 @@ class AMLogger:
                 "method": method,
                 "inputs": context.get("inputs"),
                 "outputs": context.get("outputs")
+            },
+            "metadata": {
+                "persist_to_db": str(actual_persist).lower()
             }
         }
         asyncio.create_task(self._send_to_cls(log_entry))
