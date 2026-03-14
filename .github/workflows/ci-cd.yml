@@ -1,5 +1,6 @@
 name: Logging CI/CD Pipeline
 
+
 on:
   push:
     branches: ["main"]
