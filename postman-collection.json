@@ -1,0 +1,348 @@
+{
+  "info": {
+    "name": "AM Logging Service API Collection",
+    "description": "Complete API collection for AM Centralized Logging Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8005",
+      "type": "string"
+    },
+    {
+      "key": "traceId",
+      "value": "txn-{{$randomUUID}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "1. Create Business Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trace_id\": \"{{traceId}}\",\n  \"span_id\": \"root\",\n  \"service\": \"order-service\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"log_type\": \"BUSINESS\",\n  \"level\": \"INFO\",\n  \"status\": \"processing\",\n  \"intensity\": \"normal\",\n  \"payload\": {\n    \"order_id\": \"ORD-{{$randomInteger}}\",\n    \"action\": \"order_placed\",\n    \"value\": {{$randomFloat}}\n  },\n  \"context\": {\n    \"class_name\": \"OrderService\",\n    \"method\": \"placeOrder\"\n  },\n  \"metadata\": {\n    \"runtime\": \"python3.11\",\n    \"environment\": \"local\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Audit Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trace_id\": \"{{traceId}}\",\n  \"span_id\": \"audit-span\",\n  \"service\": \"auth-service\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"log_type\": \"AUDIT\",\n  \"level\": \"INFO\",\n  \"payload\": {\n    \"user_id\": \"user-{{$randomInteger}}\",\n    \"action\": \"login_attempt\",\n    \"ip_address\": \"192.168.1.100\",\n    \"status\": \"success\"\n  },\n  \"context\": {\n    \"class_name\": \"AuthService\",\n    \"method\": \"authenticate\"\n  },\n  \"metadata\": {\n    \"session_id\": \"sess-{{$randomUUID}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Create Technical Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trace_id\": \"{{traceId}}\",\n  \"span_id\": \"db-span\",\n  \"service\": \"database-service\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"log_type\": \"TECHNICAL\",\n  \"level\": \"DEBUG\",\n  \"payload\": {\n    \"message\": \"Database connection established\",\n    \"connection_pool_size\": 10,\n    \"query_time_ms\": 45.2\n  },\n  \"context\": {\n    \"class_name\": \"DatabaseManager\",\n    \"method\": \"getConnection\",\n    \"latency_ms\": 45.2\n  },\n  \"metadata\": {\n    \"db_type\": \"postgresql\",\n    \"host\": \"localhost\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Create Error Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trace_id\": \"{{traceId}}\",\n  \"span_id\": \"error-span\",\n  \"service\": \"payment-service\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"log_type\": \"TECHNICAL\",\n  \"level\": \"ERROR\",\n  \"payload\": {\n    \"message\": \"Payment processing failed\",\n    \"error_code\": \"PAYMENT_DECLINED\",\n    \"transaction_id\": \"tx-{{$randomUUID}}\"\n  },\n  \"exception\": {\n    \"type\": \"PaymentException\",\n    \"message\": \"Card declined by issuer\",\n    \"stack\": \"at PaymentService.processPayment(PaymentService.java:125)\\n    at PaymentController.handlePayment(PaymentController.java:45)\"\n  },\n  \"context\": {\n    \"class_name\": \"PaymentService\",\n    \"method\": \"processPayment\"\n  },\n  \"metadata\": {\n    \"severity\": \"high\",\n    \"requires_action\": true\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. Update Log Status - Completed",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"completed\",\n  \"intensity\": \"normal\",\n  \"message\": \"Order successfully processed and delivered\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs/{{traceId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs", "{{traceId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. Update Log Status - Failed",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"failed\",\n  \"intensity\": \"urgent\",\n  \"message\": \"Order processing failed due to inventory shortage\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs/{{traceId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs", "{{traceId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. Update Log Status - In Progress",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"in_progress\",\n  \"intensity\": \"normal\",\n  \"message\": \"Order is being processed by warehouse\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs/{{traceId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs", "{{traceId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "8. Get Log by Trace ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs/{{traceId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs", "{{traceId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "9. Bulk Create Business Events",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trace_id\": \"bulk-{{$randomUUID}}\",\n  \"span_id\": \"bulk-root\",\n  \"service\": \"batch-processor\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"log_type\": \"BUSINESS\",\n  \"level\": \"INFO\",\n  \"payload\": {\n    \"batch_id\": \"batch-{{$randomInteger}}\",\n    \"action\": \"bulk_order_processing\",\n    \"total_orders\": 100,\n    \"status\": \"processing\"\n  },\n  \"context\": {\n    \"class_name\": \"BatchProcessor\",\n    \"method\": \"processBulkOrders\"\n  },\n  \"metadata\": {\n    \"batch_size\": 100,\n    \"estimated_completion\": \"{{$isoTimestamp}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "10. Create Critical Alert Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trace_id\": \"alert-{{$randomUUID}}\",\n  \"span_id\": \"critical-alert\",\n  \"service\": \"monitoring-service\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"log_type\": \"TECHNICAL\",\n  \"level\": \"CRITICAL\",\n  \"payload\": {\n    \"message\": \"System memory usage above 90%\",\n    \"metric_name\": \"memory_usage\",\n    \"metric_value\": 92.5,\n    \"threshold\": 90,\n    \"alert_severity\": \"critical\"\n  },\n  \"context\": {\n    \"class_name\": \"SystemMonitor\",\n    \"method\": \"checkMemoryUsage\"\n  },\n  \"metadata\": {\n    \"requires_immediate_action\": true,\n    \"escalation_level\": \"level_1\",\n    \"notification_sent\": true\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "11. List All Logs (NEW)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs?limit=10&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "10",
+              "description": "Number of logs to return"
+            },
+            {
+              "key": "offset",
+              "value": "0",
+              "description": "Number of logs to skip"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "12. Create Log via PUT (if not exists)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"created\",\n  \"intensity\": \"normal\",\n  \"message\": \"Log created via PUT endpoint\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/logs/{{traceId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "logs", "{{traceId}}"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Generate new trace ID for each request if not set",
+          "if (!pm.variables.get('traceId') || pm.variables.get('traceId') === '') {",
+          "    pm.variables.set('traceId', 'txn-' + pm.variables.replaceIn('{{$randomUUID}}'));",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Common tests for all requests",
+          "pm.test(\"Status code is successful\", function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 202, 404]);",
+          "});",
+          "",
+          "// Log specific tests",
+          "if (pm.request.method === 'POST' && pm.request.url.path.includes('logs')) {",
+          "    pm.test(\"Log accepted response\", function () {",
+          "        const responseJson = pm.response.json();",
+          "        pm.expect(responseJson).to.have.property('status');",
+          "        pm.expect(responseJson).to.have.property('trace_id');",
+          "    });",
+          "}",
+          "",
+          "// Update specific tests",
+          "if (pm.request.method === 'PUT') {",
+          "    pm.test(\"Update successful\", function () {",
+          "        const responseJson = pm.response.json();",
+          "        pm.expect(responseJson).to.have.property('status', 'updated');",
+          "        pm.expect(responseJson).to.have.property('new_status');",
+          "    });",
+          "}",
+          "",
+          "// Get specific tests",
+          "if (pm.request.method === 'GET' && pm.request.url.path.includes('logs')) {",
+          "    pm.test(\"Log retrieved successfully\", function () {",
+          "        if (pm.response.code === 200) {",
+          "            const responseJson = pm.response.json();",
+          "            pm.expect(responseJson).to.have.property('trace_id');",
+          "            pm.expect(responseJson).to.have.property('payload');",
+"            pm.expect(responseJson).to.have.property('timestamp');",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+}
