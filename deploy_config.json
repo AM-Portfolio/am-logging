@@ -1,0 +1,15 @@
+{
+  "project_name": "am-logging",
+  "namespace_prefix": "am",
+  "helm_chart_name": "am-logging",
+  "services": [
+    {
+      "name": "am-logging",
+      "path": "service",
+      "repo": "am-logging",
+      "port_env": "PORT_AM_LOGGING",
+      "container_port": 8000,
+      "host_port": 7003
+    }
+  ]
+}

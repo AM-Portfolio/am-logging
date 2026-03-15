@@ -31,12 +31,12 @@ global:
 replicaCount: 1
 
 image:
-  repository: am-logging-svc
+  repository: am-logging
   tag: "latest"
 
 service:
   type: ClusterIP
-  port: 80
+  port: 8000
   targetPort: 8000
 
 # Non-sensitive resources

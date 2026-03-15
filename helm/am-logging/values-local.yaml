@@ -2,7 +2,7 @@
 # These values are used for local Helm deployment
 
 environment: local
-namespace: am-logging-local
+namespace: am-apps-local
 
 global:
   isLocal: true
@@ -16,15 +16,16 @@ global:
     # Use host.docker.internal to reach vault running on the host
     address: "http://host.docker.internal:8200"
 
-env:
-  MONGODB_URL: "mongodb://host.docker.internal:27017/portfolio?authSource=admin"
-  REDIS_URL: "redis://:RedisPassword123!@host.docker.internal:6379/0"
-  LOKI_URL: "http://host.docker.internal:3100"
+env: {}
+  # Env vars injected from .env by deploy_local.py
+  # MONGO_URL
+  # REDIS_URL
+  # LOKI_URL
 
 replicaCount: 1
 
 image:
-  repository: am-logging-svc
+  repository: am-logging
   tag: "latest"
 
 resources:

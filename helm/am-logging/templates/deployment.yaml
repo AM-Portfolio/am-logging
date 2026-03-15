@@ -1,4 +1,3 @@
-{{- if not .Values.global.isLocal }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,9 +19,25 @@ spec:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: {{ .Values.global.vault.role | quote }}
         vault.hashicorp.com/auth-path: {{ .Values.global.vault.authPath | quote }}
+        vault.hashicorp.com/agent-inject-secret-redis: {{ .Values.global.vault.secrets.redis | quote }}
+        vault.hashicorp.com/agent-inject-template-redis: |
+          {{`{{`}}- with secret {{ .Values.global.vault.secrets.redis | quote }} {{`}}` }}
+          {{`{{`}}- range $k, $v := .Data.data {{`}}` }}
+          export {{`{{`}} $k {{`}}` }}="{{`{{`}} $v {{`}}` }}"
+          {{`{{`}} end {{`}}` }}
+          {{`{{`}} end {{`}}` }}
+        vault.hashicorp.com/agent-inject-secret-mongodb: {{ .Values.global.vault.secrets.mongodb | quote }}
+        vault.hashicorp.com/agent-inject-template-mongodb: |
+          {{`{{`}}- with secret {{ .Values.global.vault.secrets.mongodb | quote }} {{`}}` }}
+          {{`{{`}}- range $k, $v := .Data.data {{`}}` }}
+          export {{`{{`}} $k {{`}}` }}="{{`{{`}} $v {{`}}` }}"
+          {{`{{`}} end {{`}}` }}
+          {{`{{`}} end {{`}}` }}
         {{- end }}
     spec:
+      {{- if .Values.global.vault.enabled }}
       serviceAccountName: am-common-vault-sa
+      {{- end }}
       containers:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.global.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -50,4 +65,3 @@ spec:
         {{- end }}
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
-{{- end }}

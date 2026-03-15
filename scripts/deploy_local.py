@@ -1,136 +1,83 @@
 import argparse
 import os
-import subprocess
 import sys
-import tempfile
-from typing import List
 
+# --- Bootstrap am-scripts ---
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.dirname(script_dir)
+am_repos_root = os.path.dirname(repo_root)
+am_scripts_src = os.path.join(am_repos_root, "am-scripts", "src")
 
-def run_command(command: str, cwd: str | None = None) -> None:
-    """Run a shell command and exit on failure."""
-    print(f"Executing: {command}")
-    result = subprocess.run(command, shell=True, cwd=cwd)
-    if result.returncode != 0:
-        print(f"Error: Command failed with exit code {result.returncode}")
-        sys.exit(result.returncode)
+if os.path.exists(am_scripts_src):
+    if am_scripts_src not in sys.path:
+        sys.path.insert(0, am_scripts_src)
+else:
+    print(f"Error: am-scripts repository not found at {am_scripts_src}")
+    print("Please clone am-scripts into the same parent directory as am-logging.")
+    sys.exit(1)
 
+from am_scripts.deploy import main_deploy_logic
+from am_scripts.utils import setup_logger, load_config, parse_env
 
-def discover_kind_nodes(cluster_name: str) -> List[str]:
-    """Return KIND node container names for the given cluster."""
-    if not cluster_name:
-        return []
+logger = setup_logger("AM_Logging_Deploy")
 
-    try:
-        result = subprocess.run(
-            ["docker", "ps", "--format", "{{.Names}}"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except FileNotFoundError:
-        print("Docker CLI not found; skipping KIND image load.")
-        return []
+def logging_helm_overrides(app_vars, helm_args):
+    """
+    am-logging specific Helm overrides.
+    """
+    def transform_url(url, target_host):
+        if "localhost" in url:
+            return url.replace("localhost", target_host)
+        return url
 
-    if result.returncode != 0:
-        print("Unable to list docker containers; skipping KIND image load.")
-        return []
+    if "MONGO_URL" in app_vars:
+        url = transform_url(app_vars["MONGO_URL"], "mongodb.infra.svc.cluster.local")
+        helm_args.append(f'--set env.MONGO_URL="{url}"')
 
-    prefix = f"{cluster_name}-"
-    return [name.strip() for name in result.stdout.splitlines() if name.strip().startswith(prefix)]
+    if "REDIS_URL" in app_vars:
+        url = transform_url(app_vars["REDIS_URL"], "redis.infra.svc.cluster.local")
+        helm_args.append(f'--set env.REDIS_URL="{url}"')
 
+    if "LOKI_URL" in app_vars:
+        url = transform_url(app_vars["LOKI_URL"], "monitoring-loki.monitoring.svc.cluster.local")
+        helm_args.append(f'--set env.LOKI_URL="{url}"')
 
-def load_image_into_kind(image_tag: str, cluster_name: str) -> None:
-    nodes = discover_kind_nodes(cluster_name)
-    if not nodes:
-        print(
-            f"No KIND nodes detected for cluster '{cluster_name}'. "
-            "Skipping automatic image load."
-        )
-        return
+def main():
+    config_path = os.path.join(repo_root, "deploy_config.json")
+    env_path = os.path.join(repo_root, ".env.deploy")
+    
+    # Load Configs
+    config = load_config(config_path)
+    env_vars = parse_env(env_path)
+    
+    # Load App Secrets
+    app_env_path = os.path.join(repo_root, ".env")
+    app_env_vars = parse_env(app_env_path) if os.path.exists(app_env_path) else {}
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tar_path = os.path.join(tmpdir, "image.tar")
-        print(f"Saving {image_tag} to temporary tarball ...")
-        save_result = subprocess.run(["docker", "save", image_tag, "-o", tar_path])
-        if save_result.returncode != 0:
-            print("Failed to save Docker image; skipping KIND image load.")
-            return
+    # Defaults
+    defaults = {
+        "namespace_prefix": env_vars.get("NAMESPACE_PREFIX", config.get("namespace_prefix", "am")),
+        "kind_cluster": env_vars.get("KIND_CLUSTER_NAME", "am-preprod"),
+        "skip_load": env_vars.get("SKIP_KIND_LOAD", "false").lower() == "true",
+        "run_docker": env_vars.get("RUN_DOCKER", "false").lower() == "true",
+        "skip_build": env_vars.get("SKIP_BUILD", "false").lower() == "true"
+    }
 
-        for node in nodes:
-            print(f"Loading {image_tag} into {node} ...")
-            with open(tar_path, "rb") as tar_file:
-                load_result = subprocess.run(
-                    ["docker", "exec", "-i", node, "ctr", "-n", "k8s.io", "image", "import", "-"],
-                    stdin=tar_file,
-                )
-            if load_result.returncode != 0:
-                print(f"Warning: failed to load {image_tag} into {node} (exit code {load_result.returncode}).")
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Build and deploy the AM Logging service locally."
-    )
-    parser.add_argument(
-        "--skip-build", "-k", action="store_true", help="Skip Docker build step"
-    )
-    parser.add_argument(
-        "--build-only",
-        "-b",
-        action="store_true",
-        help="Only build Docker image, do not run Helm deploy",
-    )
-    parser.add_argument(
-        "--deploy-only",
-        "-d",
-        action="store_true",
-        help="Only deploy via Helm, skip Docker build",
-    )
-    parser.add_argument(
-        "--namespace-prefix",
-        "-p",
-        type=str,
-        default="am",
-        help="Prefix for namespaces (default: am)",
-    )
-    parser.add_argument(
-        "--kind-cluster-name",
-        type=str,
-        default="am-preprod",
-        help="Name of the KIND cluster whose nodes should receive the image (set empty to skip)",
-    )
-    parser.add_argument(
-        "--skip-kind-load",
-        action="store_true",
-        help="Skip automatically loading the Docker image into KIND nodes",
-    )
+    # Arguments
+    parser = argparse.ArgumentParser(description="Build and deploy AM Logging service locally.")
+    parser.add_argument("--skip-build", "-k", action="store_true", default=defaults["skip_build"], help="Skip Docker builds")
+    parser.add_argument("--build-only", "-b", action="store_true", help="Only build Docker images, do not deploy")
+    parser.add_argument("--deploy-only", "-d", action="store_true", help="Only deploy via Helm, skip builds")
+    parser.add_argument("--services", "-s", type=str, help="Comma-separated list of services to process")
+    parser.add_argument("--namespace-prefix", "-p", type=str, default=defaults["namespace_prefix"], help=f"Prefix for namespaces")
+    parser.add_argument("--kind-cluster-name", type=str, default=defaults["kind_cluster"], help=f"Name of the KIND cluster")
+    parser.add_argument("--skip-kind-load", action="store_true", default=defaults["skip_load"], help="Skip automatically loading images into KIND")
+    parser.add_argument("--run-docker", action="store_true", default=defaults["run_docker"], help="Run in Docker instead of K8s")
+    
     args = parser.parse_args()
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    am_logging_root = os.path.dirname(script_dir)
-    service_context = os.path.join(am_logging_root, "service")
-
-    image_tag = "local/am-logging-svc:latest"
-
-    if not (args.skip_build or args.deploy_only):
-        print("\n--- Building am-logging-svc ---")
-        run_command(f'docker build -t "{image_tag}" "{service_context}"')
-
-    if not args.skip_kind_load:
-        load_image_into_kind(image_tag, args.kind_cluster_name)
-
-    if not args.build_only:
-        print("\n--- Deploying am-logging ---")
-        logging_helm = os.path.join(am_logging_root, "helm")
-        run_command(
-            f'helm upgrade --install am-logging "{logging_helm}" '
-            f'-f "{os.path.join(logging_helm, "values.yaml")}" '
-            f'-f "{os.path.join(logging_helm, "values-local.yaml")}" '
-            f'--namespace {args.namespace_prefix}-logging-local --create-namespace'
-        )
-
-    print("\n✅ Logging deployment task completed.")
-
+    # Run Main Logic
+    main_deploy_logic(config, env_vars, app_env_vars, repo_root, args, helm_overrides_callback=logging_helm_overrides)
 
 if __name__ == "__main__":
     main()
