@@ -5,6 +5,7 @@ import datetime
 import asyncio
 from typing import Optional, Dict, Any, List
 from enum import Enum
+import logging
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Path, Body, Query
 from pydantic import BaseModel, Field, validator
@@ -12,14 +13,20 @@ import redis.asyncio as redis
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
+from logging_config import setup_logging
+
 # --- Local Environment Support ---
 # Load .env file if present in the current directory or parent
 load_dotenv()
+
+# Setup Logging
+logger = setup_logging("am-logging-service", os.getenv("LOG_LEVEL", "INFO"))
 
 app = FastAPI(title="AM Centralized Logging Service", version="1.0.0")
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("Service starting up")
     await test_db_connection()
 
 # --- Configuration ---
@@ -39,16 +46,16 @@ async def test_db_connection():
     try:
         # Test Redis
         await redis_client.ping()
-        print("✅ Redis connection successful")
+        logger.info("Redis connection successful", extra={"component": "redis", "status": "connected"})
     except Exception as e:
-        print(f"❌ Redis connection failed: {e}")
+        logger.error(f"Redis connection failed: {e}", extra={"component": "redis", "status": "failed", "error": str(e)})
     
     try:
         # Test MongoDB
         await db.command('ping')
-        print("✅ MongoDB connection successful")
+        logger.info("MongoDB connection successful", extra={"component": "mongodb", "status": "connected"})
     except Exception as e:
-        print(f"❌ MongoDB connection failed: {e}")
+        logger.error(f"MongoDB connection failed: {e}", extra={"component": "mongodb", "status": "failed", "error": str(e)})
 
 # --- Models (Sync with logging_api_spec.yaml) ---
 class LogType(str, Enum):
@@ -79,6 +86,8 @@ class IntensityType(str, Enum):
 class LogContext(BaseModel):
     class_name: Optional[str] = Field(None, alias="class", description="Class name where the log originated")
     method: Optional[str] = Field(None, description="Method name that generated the log")
+    filename: Optional[str] = Field(None, description="Filename where the log originated")
+    line_number: Optional[int] = Field(None, description="Line number where the log originated")
     inputs: Optional[Dict[str, Any]] = Field(None, description="Input parameters for the method")
     outputs: Optional[Dict[str, Any]] = Field(None, description="Output values from the method")
     latency_ms: Optional[float] = Field(None, description="Execution time in milliseconds")
@@ -146,7 +155,7 @@ def mask_data(data: Any) -> Any:
 async def distribute_log(log_data: dict):
     # 1. Mask PII
     masked_log = mask_data(log_data)
-    print(f"Distributing log: {masked_log['trace_id']}")
+    logger.debug(f"Distributing log", extra={"trace_id": masked_log['trace_id']})
     
     # 2. Persist to MongoDB if BUSINESS or AUDIT (and not explicitly disabled)
     persist_to_db = log_data.get("metadata", {}).get("persist_to_db", "true").lower() == "true"
@@ -176,19 +185,19 @@ async def distribute_log(log_data: dict):
                 )
                 
                 if result.modified_count > 0:
-                    print(f"Successfully updated business event: {trace_id}")
+                    logger.info(f"Successfully updated business event", extra={"trace_id": trace_id})
                 else:
-                    print(f"No document found to update for trace_id: {trace_id}, inserting new")
+                    logger.info(f"No document found to update for trace_id, inserting new", extra={"trace_id": trace_id})
                     await db.business_events.insert_one(masked_log)
             else:
                 # Insert new document
                 await db.business_events.insert_one(masked_log)
-            print("Successfully persisted to MongoDB")
+            logger.info("Successfully persisted to MongoDB", extra={"trace_id": masked_log['trace_id']})
         except Exception as e:
-            print(f"Failed to persist to MongoDB: {e}")
+            logger.error(f"Failed to persist to MongoDB: {e}", extra={"trace_id": masked_log['trace_id'], "error": str(e)})
     
     # 3. Push to Loki (Technical track)
-    print(f"Loki push simulated for: {masked_log['trace_id']}")
+    logger.debug(f"Loki push simulated", extra={"trace_id": masked_log['trace_id']})
 
 # --- Endpoints ---
 @app.post("/v1/logs", 
@@ -200,33 +209,6 @@ async def distribute_log(log_data: dict):
 async def ingest_log(log: LogEntry, background_tasks: BackgroundTasks):
     """
     Create a new log entry in the system.
-    
-    **Log Types:**
-    - **BUSINESS**: Business events like orders, payments, user actions (persisted to MongoDB)
-    - **AUDIT**: Security and compliance events (persisted to MongoDB)  
-    - **TECHNICAL**: System events, debugging, performance metrics (sent to Loki)
-    
-    **Status Flow:**
-    - pending → processing → in_progress → completed/failed
-    
-    **Example Usage:**
-    ```json
-    {
-      "trace_id": "txn_12345",
-      "span_id": "order_process",
-      "service": "order-service",
-      "timestamp": "2024-03-14T12:00:00Z",
-      "log_type": "BUSINESS",
-      "level": "INFO",
-      "status": "processing",
-      "intensity": "normal",
-      "payload": {
-        "order_id": "ORD-123",
-        "customer_id": "CUST-456",
-        "amount": 99.99
-      }
-    }
-    ```
     """
     log_dict = log.model_dump() if hasattr(log, 'model_dump') else log.dict()
     log_dict["timestamp"] = log_dict["timestamp"].isoformat()
@@ -235,9 +217,9 @@ async def ingest_log(log: LogEntry, background_tasks: BackgroundTasks):
     # Immediate persist to Redis for Zero Log Loss
     try:
         await redis_client.lpush("logging_queue", json.dumps(log_dict))
-        print("Log pushed to Redis queue")
+        logger.debug("Log pushed to Redis queue", extra={"trace_id": log_dict["trace_id"]})
     except Exception as e:
-        print(f"Warning: Failed to push to Redis: {e}")
+        logger.warning(f"Failed to push to Redis: {e}", extra={"trace_id": log_dict["trace_id"], "error": str(e)})
     
     # Background task to process and distribute
     background_tasks.add_task(distribute_log, log_dict)
@@ -256,32 +238,6 @@ async def update_log_status(
 ):
     """
     Update the status of an existing business event or create a new one if it doesn't exist.
-    
-    **Status Values:**
-    - `pending`: Initial state
-    - `processing`: Being processed
-    - `in_progress`: Currently being handled
-    - `completed`: Successfully finished
-    - `failed`: Failed with errors
-    - `cancelled`: Cancelled before completion
-    
-    **Intensity Levels:**
-    - `low`: Low priority/normal operations
-    - `normal`: Standard priority
-    - `urgent`: High priority, requires attention
-    
-    **Example Request:**
-    ```json
-    {
-      "status": "completed",
-      "intensity": "normal",
-      "message": "Order processed successfully"
-    }
-    ```
-    
-    **Responses:**
-    - `200`: Successfully updated
-    - `201`: New log created (if didn't exist)
     """
     try:
         # First check if the document exists
@@ -306,7 +262,7 @@ async def update_log_status(
             }
             
             await db.business_events.insert_one(new_log)
-            print(f"Created new log entry for trace_id: {trace_id}")
+            logger.info(f"Created new log entry via update", extra={"trace_id": trace_id})
             
             return {
                 "status": "created", 
@@ -331,7 +287,7 @@ async def update_log_status(
         )
         
         if result.modified_count > 0:
-            print(f"Successfully updated business event: {trace_id}")
+            logger.info(f"Successfully updated business event", extra={"trace_id": trace_id})
             return {
                 "status": "updated", 
                 "trace_id": trace_id,
@@ -346,7 +302,7 @@ async def update_log_status(
             }
             
     except Exception as e:
-        print(f"Failed to update log {trace_id}: {str(e)}")
+        logger.error(f"Failed to update log {trace_id}: {str(e)}", extra={"trace_id": trace_id, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Failed to update log: {str(e)}")
 
 @app.get("/v1/logs/{trace_id}", 
@@ -359,28 +315,6 @@ async def get_log(
 ):
     """
     Retrieve a specific business event by trace_id.
-    
-    **Search Order:**
-    1. MongoDB (persisted logs)
-    2. Redis queue (recently added, not yet processed)
-    
-    **Response Status:**
-    - `found`: Log found in database
-    - `found_in_queue`: Log found in Redis queue (not yet processed)
-    - `not_found`: Log not found anywhere
-    
-    **Example Response:**
-    ```json
-    {
-      "status": "found",
-      "log": {
-        "trace_id": "txn_12345",
-        "service": "order-service",
-        "status": "completed",
-        "payload": {...}
-      }
-    }
-    ```
     """
     try:
         log = await db.business_events.find_one({"trace_id": trace_id})
@@ -404,7 +338,7 @@ async def get_log(
                             "message": "Log found in Redis queue, not yet persisted to MongoDB"
                         }
             except Exception as redis_error:
-                print(f"Redis check failed: {redis_error}")
+                logger.warning(f"Redis check failed: {redis_error}", extra={"trace_id": trace_id, "error": str(redis_error)})
             
             return {
                 "status": "not_found",
@@ -412,7 +346,7 @@ async def get_log(
                 "message": "Log not found in database or queue"
             }
     except Exception as e:
-        print(f"Failed to retrieve log {trace_id}: {str(e)}")
+        logger.error(f"Failed to retrieve log {trace_id}: {str(e)}", extra={"trace_id": trace_id, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Failed to retrieve log: {str(e)}")
 
 @app.get("/v1/logs",
@@ -426,26 +360,6 @@ async def list_logs(
 ):
     """
     List recent business events with pagination.
-    
-    **Parameters:**
-    - `limit`: Number of logs to return (max 100)
-    - `offset`: Number of logs to skip (for pagination)
-    
-    **Default Behavior:**
-    - Returns 10 most recent logs
-    - Sorted by timestamp (newest first)
-    - Only includes BUSINESS and AUDIT logs from MongoDB
-    
-    **Example Response:**
-    ```json
-    {
-      "status": "success",
-      "logs": [...],
-      "count": 10,
-      "offset": 0,
-      "limit": 10
-    }
-    ```
     """
     try:
         logs = []
@@ -463,7 +377,7 @@ async def list_logs(
             "limit": limit
         }
     except Exception as e:
-        print(f"Failed to list logs: {str(e)}")
+        logger.error(f"Failed to list logs: {str(e)}", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail=f"Failed to list logs: {str(e)}")
 
 @app.get("/health",
@@ -474,16 +388,6 @@ async def list_logs(
 async def health():
     """
     Health check endpoint for the logging service.
-    
-    **Response:**
-    - `healthy`: All systems operational
-    - `degraded`: Some services have issues but logging still works
-    - `unhealthy`: Critical failures
-    
-    **Dependencies Checked:**
-    - Redis connection (for log queuing)
-    - MongoDB connection (for log persistence)
-    - Service status
     """
     return {
         "status": "healthy",
@@ -499,7 +403,8 @@ async def health():
 def main():
     import uvicorn
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Configure Uvicorn to use our loggers
+    uvicorn.run(app, host="0.0.0.0", port=port, log_config=None)
 
 if __name__ == "__main__":
     main()
