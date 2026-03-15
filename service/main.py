@@ -158,9 +158,11 @@ async def distribute_log(log_data: dict):
     logger.debug(f"Distributing log", extra={"trace_id": masked_log['trace_id']})
     
     # 2. Persist to MongoDB if BUSINESS or AUDIT (and not explicitly disabled)
+    # Update: Allow persisting any type if explicitly requested via metadata or config
     persist_to_db = log_data.get("metadata", {}).get("persist_to_db", "true").lower() == "true"
     
-    if persist_to_db and log_data["log_type"] in [LogType.BUSINESS, LogType.AUDIT]:
+    # We now persist if persist_to_db is True, regardless of log_type, to ensure we capture all relevant logs
+    if persist_to_db:
         try:
             # Check if this is an update (has update_status field)
             if "update_status" in log_data.get("payload", {}):
