@@ -1,0 +1,24 @@
+services:
+  am-logging:
+    build:
+      context: ./service
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-6003}:8000"
+    env_file:
+      - .env.docker
+    environment:
+      - ENVIRONMENT=docker
+      - PORT=8000
+      - REDIS_URL=${REDIS_URL:-redis://host.docker.internal:6379/0}
+      - MONGO_URL=${MONGO_URL:-mongodb://admin:nv3zgSiR0uaoVIVolwtQaT4z@host.docker.internal:27017/portfolio?authSource=admin}
+      - LOKI_URL=${LOKI_URL:-http://host.docker.internal:3100/loki/api/v1/push}
+    volumes:
+      - ./service:/app/service
+    networks:
+      - am-network
+
+networks:
+  am-network:
+    driver: bridge
+    name: am-network

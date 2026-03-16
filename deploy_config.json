@@ -9,7 +9,7 @@
       "repo": "am-logging",
       "port_env": "PORT_AM_LOGGING",
       "container_port": 8000,
-      "host_port": 7003
+      "host_port": 6003
     }
   ]
 }
