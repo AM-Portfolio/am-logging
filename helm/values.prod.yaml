@@ -5,11 +5,11 @@ env:
 vault:
   secretPaths:
     mongodb:
-      path: "secret/data/prod/infra/mongodb"
+      path: "apps/data/prod/infra/mongodb"
     redis:
-      path: "secret/data/prod/infra/redis"
+      path: "apps/data/prod/infra/redis"
     loki:
-      path: "secret/data/prod/infra/loki"
+      path: "apps/data/prod/infra/loki"
 
 ingress:
   enabled: true
