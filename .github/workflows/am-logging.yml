@@ -17,7 +17,7 @@ jobs:
       language: "python"
       working_directory: "."
       image_name: "am-logging"
-      build_context: "./service"
+      build_context: "."
       preprod_namespace: "am-apps-preprod"
       prod_namespace: "am-apps-prod"
       deploy_prod: false
