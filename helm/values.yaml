@@ -30,8 +30,6 @@ vault:
       path: "apps/data/preprod/infra/mongodb"
     redis:
       path: "apps/data/preprod/infra/redis"
-    loki:
-      path: "apps/data/preprod/infra/loki"
 
 env:
   ENVIRONMENT: "preprod"

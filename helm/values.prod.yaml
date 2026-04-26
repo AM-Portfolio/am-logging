@@ -8,8 +8,6 @@ vault:
       path: "apps/data/prod/infra/mongodb"
     redis:
       path: "apps/data/prod/infra/redis"
-    loki:
-      path: "apps/data/prod/infra/loki"
 
 ingress:
   enabled: true

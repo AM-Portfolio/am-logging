@@ -6,6 +6,3 @@ vault:
     redis:
       mappings:
         REDIS_URL: "url"
-    loki:
-      mappings:
-        LOKI_URL: "url"
