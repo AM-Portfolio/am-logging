@@ -2,9 +2,9 @@ name: AM Logging Service Publish
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop", "hotfix/**", "fix/**", "branch/**", "feature/**"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "develop", "hotfix/**", "fix/**", "branch/**", "feature/**"]
 
 jobs:
   publish-logging:
