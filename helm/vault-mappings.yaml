@@ -1,0 +1,11 @@
+vault:
+  secretPaths:
+    mongodb:
+      mappings:
+        MONGO_URL: "url"
+    redis:
+      mappings:
+        REDIS_URL: "url"
+    loki:
+      mappings:
+        LOKI_URL: "url"

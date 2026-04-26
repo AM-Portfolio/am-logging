@@ -1,0 +1,12 @@
+# Preprod overrides
+env:
+  ENVIRONMENT: "preprod"
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: am.asrax.in
+      paths:
+        - path: /logs
+          pathType: Prefix

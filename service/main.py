@@ -391,16 +391,35 @@ async def health():
     """
     Health check endpoint for the logging service.
     """
-    return {
+    health_status = {
         "status": "healthy",
         "service": "AM Centralized Logging Service",
         "version": "1.0.0",
         "timestamp": datetime.datetime.utcnow().isoformat(),
-        "dependencies": {
-            "redis": "connected",
-            "mongodb": "connected"
-        }
+        "dependencies": {}
     }
+    is_healthy = True
+
+    try:
+        await redis_client.ping()
+        health_status["dependencies"]["redis"] = "connected"
+    except Exception as e:
+        health_status["dependencies"]["redis"] = f"disconnected: {str(e)}"
+        is_healthy = False
+
+    try:
+        await mongo_client.admin.command('ping')
+        health_status["dependencies"]["mongodb"] = "connected"
+    except Exception as e:
+        health_status["dependencies"]["mongodb"] = f"disconnected: {str(e)}"
+        is_healthy = False
+
+    if not is_healthy:
+        health_status["status"] = "unhealthy"
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content=health_status)
+
+    return health_status
 
 def main():
     import uvicorn

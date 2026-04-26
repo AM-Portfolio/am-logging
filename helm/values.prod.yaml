@@ -1,0 +1,21 @@
+# Prod overrides
+env:
+  ENVIRONMENT: "prod"
+
+vault:
+  secretPaths:
+    mongodb:
+      path: "secret/data/prod/infra/mongodb"
+    redis:
+      path: "secret/data/prod/infra/redis"
+    loki:
+      path: "secret/data/prod/infra/loki"
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: am.munish.org
+      paths:
+        - path: /logs
+          pathType: Prefix

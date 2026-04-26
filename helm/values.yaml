@@ -1,0 +1,38 @@
+# ==============================================================================
+# am-logging Helm Chart — Base Values
+# ==============================================================================
+
+replicaCount: 1
+port: 8000
+language: python
+
+image:
+  repository: am-logging
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+security:
+  automountServiceAccountToken: true
+
+vault:
+  enabled: true
+  role: "am-backend-role"
+  secretPaths:
+    mongodb:
+      path: "secret/data/preprod/infra/mongodb"
+    redis:
+      path: "secret/data/preprod/infra/redis"
+    loki:
+      path: "secret/data/preprod/infra/loki"
+
+env:
+  ENVIRONMENT: "preprod"
+  LOG_LEVEL: "INFO"
+  PORT: "8000"
