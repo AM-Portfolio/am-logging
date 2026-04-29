@@ -53,19 +53,8 @@ class AMLogger:
         clazz = frame.f_locals.get('self', None).__class__.__name__ if 'self' in frame.f_locals else "Global"
         method = frame.f_code.co_name
         
-        # Construct extra data for the formatter
-        extra_data = {
-            "trace_id": trace_id,
-            "span_id": span_id,
-            "context": context,
-            "class_name": clazz,
-            "method_name": method,
-            "service": self.service_name
-        }
-        
-        # Log raw message with extra data
-        # The configured formatter will handle structure and timestamps
-        self.logger.log(getattr(logging, level), message, extra=extra_data)
+        formatted_msg = self._format_message(level, trace_id, span_id, clazz, method, message, context)
+        self.logger.log(getattr(logging, level), formatted_msg)
 
         # Async send to CLS
         log_entry = {

@@ -31,12 +31,57 @@ def sync_to_auth():
     
     return True
 
+def sync_to_market():
+    """Sync regenerated SDK files to am-market repository"""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    repos_root = os.path.dirname(base_dir)
+    am_market_root = os.path.join(repos_root, "am-market")
+    
+    if not os.path.exists(am_market_root):
+        print(f"Error: am-market repository not found at {am_market_root}")
+        return False
+        
+    sync_tasks = [
+        {
+            "src": os.path.join(base_dir, "libraries", "java", "am-logging-java", "src", "main", "java", "com", "am", "logging", "AMLogger.java"),
+            "dest": os.path.join(am_market_root, "am-market-data", "market-data-common", "src", "main", "java", "com", "am", "logging", "AMLogger.java")
+        },
+        {
+            "src": os.path.join(base_dir, "libraries", "python", "am-logging-sdk", "am_logging_client.py"),
+            "dest": os.path.join(am_market_root, "market-data-analysis-py", "app", "core", "logging", "am_logging_client.py")
+        },
+        {
+            "src": os.path.join(base_dir, "libraries", "python", "am-logging-py", "am_logging", "core.py"),
+            "dest": os.path.join(am_market_root, "market-data-analysis-py", "app", "core", "logging", "core.py")
+        },
+        {
+            "src": os.path.join(base_dir, "libraries", "python", "am-logging-sdk", "am_logging_client.py"),
+            "dest": os.path.join(am_market_root, "am-parser", "am_common", "logging", "am_logging_client.py")
+        },
+        {
+            "src": os.path.join(base_dir, "libraries", "python", "am-logging-py", "am_logging", "core.py"),
+            "dest": os.path.join(am_market_root, "am-parser", "am_common", "logging", "core.py")
+        }
+    ]
+    
+    for task in sync_tasks:
+        os.makedirs(os.path.dirname(task["dest"]), exist_ok=True)
+        shutil.copy2(task["src"], task["dest"])
+        print(f"Synced {os.path.basename(task['src'])} -> {task['dest']}")
+    
+    return True
+
 def main():
     print("--- Starting SDK Generation ---")
     generate_libraries()
     
     print("\n--- Starting SDK Sync to am-auth ---")
-    if sync_to_auth():
+    auth_success = sync_to_auth()
+    
+    print("\n--- Starting SDK Sync to am-market ---")
+    market_success = sync_to_market()
+    
+    if auth_success and market_success:
         print("\n✅ Generation and Sync completed successfully.")
     else:
         print("\n❌ Sync failed.")
