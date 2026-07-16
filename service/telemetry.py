@@ -9,7 +9,7 @@ import os
 from typing import Any, Optional
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,8 @@ _ALLOWED_EVENTS = frozenset(
 
 
 class ProductEvent(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     event: str
     ts: Optional[str] = None
     anon_id: Optional[str] = None
@@ -39,6 +41,13 @@ class ProductEvent(BaseModel):
     section: Optional[str] = None
     screen: Optional[str] = None
     duration_ms: Optional[float] = None
+    # Flattened RUM / action fields (also mirrored under props)
+    action: Optional[str] = None
+    path: Optional[str] = None
+    method: Optional[str] = None
+    status: Optional[Any] = None
+    category: Optional[str] = None
+    tag: Optional[str] = None
     props: Optional[dict[str, Any]] = None
 
 

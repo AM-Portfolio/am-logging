@@ -1,6 +1,28 @@
 # Dev — public /logging for Flutter product telemetry
 environment: dev
-namespace: am-apps-dev
+replicaCount: 1
+
+vault:
+  enabled: true
+  secretPaths:
+    otel:
+      path: "apps/data/dev/infra/observability"
+    mongodb:
+      path: "apps/data/dev/infra/mongodb"
+      template: |
+        {{- with secret "apps/data/dev/infra/mongodb" -}}
+        export MONGO_URL="mongodb://{{ .Data.data.username }}:{{ .Data.data.password }}@mongodb.infra.svc.cluster.local:27017/am_analytics?authSource=admin"
+        {{- end }}
+    redis:
+      path: "apps/data/dev/infra/redis"
+      template: |
+        {{- with secret "apps/data/dev/infra/redis" -}}
+        export REDIS_URL="redis://:{{ .Data.data.password }}@{{ .Data.data.host }}:{{ .Data.data.port }}/0"
+        {{- end }}
+
+env:
+  ENVIRONMENT: dev
+  ALLOWED_ORIGINS: "http://localhost:3000,https://am-dev.asrax.in"
 
 ingress:
   enabled: true

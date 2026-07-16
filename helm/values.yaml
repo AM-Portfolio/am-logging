@@ -1,69 +1,85 @@
-# ==============================================================================
-# am-logging Helm Chart — Base Values
-#
-# DESIGN PRINCIPLE:
-#   ALL sensitive runtime config (URLs, credentials) comes from HashiCorp Vault.
-# ==============================================================================
-
-environment: local
-namespace: am-apps-preprod
-
-# Global configuration emulating the am-auth pattern
+# am-logging — base Helm values (universal-chart via am-pipelines)
 global:
-  isLocal: false
   image:
     registry: ghcr.io/am-portfolio
-    pullPolicy: IfNotPresent
-    tag: "latest"
-
+    pullPolicy: Always
+    imagePullSecrets:
+      - name: regcred
   vault:
     enabled: true
-    address: "http://vault.vault.svc.cluster.local:8200"
-    role: "am-auth"
+    role: "am-backend-role"
     authPath: "auth/kubernetes"
-    # KV v2 paths for secrets
-    secrets:
-      redis:   "secret/data/am-logging/local/redis"
-      mongodb: "secret/data/am-logging/local/mongodb"
-      loki:    "secret/data/am-logging/local/loki"
-      # Sampling — cluster SoT (override per env in values.<env>.yaml if present)
-      otel:    "apps/data/preprod/infra/observability"
-
-# Service-specific configuration
-replicaCount: 1
+    serviceAccountName: "am-backend-sa"
 
 image:
-  repository: am-logging-svc
-  tag: "latest"
+  repository: am-logging
 
+replicaCount: 1
+language: python
+port: 8000
 service:
-  type: ClusterIP
-  port: 80
-  targetPort: 8000
+  port: 8000
+entrypoint: "exec uvicorn main:app --host 0.0.0.0 --port 8000"
 
-# Non-sensitive resources
+security:
+  automountServiceAccountToken: true
+
+config: {}
+
+vault:
+  enabled: true
+  secretPaths:
+    otel:
+      path: "apps/data/preprod/infra/observability"
+      mappings:
+        TRACING_SAMPLING_PROBABILITY: "TRACING_SAMPLING_PROBABILITY"
+    mongodb:
+      path: "apps/data/preprod/infra/mongodb"
+      template: |
+        {{- with secret "apps/data/preprod/infra/mongodb" -}}
+        export MONGO_URL="mongodb://{{ .Data.data.username }}:{{ .Data.data.password }}@mongodb.infra.svc.cluster.local:27017/am_analytics?authSource=admin"
+        {{- end }}
+    redis:
+      path: "apps/data/preprod/infra/redis"
+      template: |
+        {{- with secret "apps/data/preprod/infra/redis" -}}
+        export REDIS_URL="redis://:{{ .Data.data.password }}@{{ .Data.data.host }}:{{ .Data.data.port }}/0"
+        {{- end }}
+
+env:
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"
+  LOKI_URL: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+  LOG_LEVEL: INFO
+  TZ: Asia/Kolkata
+
+probes:
+  port: 8000
+  startup:
+    path: /health
+    failureThreshold: 30
+    periodSeconds: 10
+  liveness:
+    path: /health
+  readiness:
+    path: /health
+
 resources:
-  requests:
-    memory: "128Mi"
-    cpu: "100m"
   limits:
-    memory: "256Mi"
-    cpu: "300m"
+    cpu: 300m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
-# Plane A — Prometheus scrape (path /metrics on container port)
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8000"
   prometheus.io/path: "/metrics"
 
-# Non-secret OTEL endpoint; sampling from Vault apps/data/{env}/infra/observability
-env:
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"
-  LOKI_URL: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
-
-# Public path for Flutter product telemetry (strip /logging → /v1/telemetry/events)
 ingress:
   enabled: false
   className: "traefik"
-  annotations: {}
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
   hosts: []
