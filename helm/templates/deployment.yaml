@@ -16,10 +16,18 @@ spec:
       labels:
         app: {{ .Chart.Name }}
       annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- if .Values.global.vault.enabled }}
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: {{ .Values.global.vault.role | quote }}
         vault.hashicorp.com/auth-path: {{ .Values.global.vault.authPath | quote }}
+        {{- if .Values.global.vault.secrets }}
+        {{- range $name, $path := .Values.global.vault.secrets }}
+        vault.hashicorp.com/agent-inject-secret-{{ $name }}: {{ $path | quote }}
+        {{- end }}
+        {{- end }}
         {{- end }}
     spec:
       serviceAccountName: am-common-vault-sa
@@ -37,6 +45,7 @@ spec:
             . /vault/secrets/redis 2>/dev/null || true
             . /vault/secrets/mongodb 2>/dev/null || true
             . /vault/secrets/loki 2>/dev/null || true
+            . /vault/secrets/otel 2>/dev/null || true
             {{- end }}
             exec uvicorn main:app --host 0.0.0.0 --port {{ .Values.service.targetPort }}
         env:

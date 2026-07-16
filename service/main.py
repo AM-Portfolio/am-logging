@@ -18,6 +18,11 @@ load_dotenv()
 
 app = FastAPI(title="AM Centralized Logging Service", version="1.0.0")
 
+# Plane A — Prometheus /metrics + OTEL (sampling from Vault)
+from plane_a import setup_plane_a
+
+setup_plane_a(app, application="am-logging")
+
 @app.on_event("startup")
 async def startup_event():
     await test_db_connection()
