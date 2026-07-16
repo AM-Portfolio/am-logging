@@ -27,6 +27,19 @@ TELEMETRY_HASH_SALT = os.getenv("TELEMETRY_HASH_SALT", "am-product-telemetry-v1"
 TELEMETRY_RATE_LIMIT_PER_MIN = int(os.getenv("TELEMETRY_RATE_LIMIT_PER_MIN", "120"))
 TELEMETRY_API_TIMING_SAMPLE = float(os.getenv("TELEMETRY_API_TIMING_SAMPLE", "1.0"))
 
+
+def _parse_hash_ids(raw: str) -> frozenset[str]:
+    """Which id fields to hash. Default keeps user_id RAW so operators can
+    filter dashboards by the real user_id/portfolio_id they pass in."""
+    items = {p.strip() for p in (raw or "").split(",") if p.strip()}
+    return frozenset(items)
+
+
+# Default: hash anonymous/session ids only. user_id stays raw for filtering.
+TELEMETRY_HASH_IDS = _parse_hash_ids(
+    os.getenv("TELEMETRY_HASH_IDS", "anon_id,session_id")
+)
+
 _ENV_ALIASES = {
     "production": "prod",
     "prod": "prod",
@@ -360,10 +373,19 @@ def sanitize_event(ev: ProductEvent) -> Optional[dict[str, Any]]:
         body["path"] = _sanitize_path(str(body["path"]))
 
     for id_key in ("user_id", "anon_id", "session_id"):
-        if id_key in body:
+        if id_key not in body:
+            continue
+        if id_key in TELEMETRY_HASH_IDS:
             hashed = _hash_id(str(body[id_key]))
             if hashed:
                 body[id_key] = hashed
+            else:
+                body.pop(id_key, None)
+        else:
+            # Kept raw (e.g. user_id) so dashboards can filter by the real value.
+            val = str(body[id_key]).strip()
+            if val:
+                body[id_key] = val[:128]
             else:
                 body.pop(id_key, None)
 
