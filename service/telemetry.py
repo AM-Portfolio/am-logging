@@ -16,6 +16,21 @@ logger = logging.getLogger(__name__)
 LOKI_URL = os.getenv("LOKI_URL", "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "preprod")
 
+_ENV_ALIASES = {
+    "production": "prod",
+    "prod": "prod",
+    "preprod": "preprod",
+    "staging": "preprod",
+    "development": "dev",
+    "dev": "dev",
+}
+
+
+def _normalize_env(raw: str) -> str:
+    key = (raw or "").strip().lower()
+    return _ENV_ALIASES.get(key, key or "unknown")
+
+
 _ALLOWED_EVENTS = frozenset(
     {
         "screen_view",
@@ -105,8 +120,8 @@ async def ingest_product_events(batch: TelemetryBatch) -> dict[str, Any]:
     """Validate and push product events to Loki (streams keyed by event+platform)."""
     accepted = 0
     rejected = 0
-    # Key: (event, platform) → lines — keep platform as a Loki label for cheap dashboards
-    by_stream: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    # Key: (event, platform, env) → lines — platform/env as Loki labels for dashboards
+    by_stream: dict[tuple[str, str, str], list[tuple[str, str]]] = {}
 
     for ev in batch.events:
         name = (ev.event or "").strip()
@@ -117,15 +132,20 @@ async def ingest_product_events(batch: TelemetryBatch) -> dict[str, Any]:
         body = ev.model_dump(exclude_none=True)
         if "env" not in body or not body["env"]:
             body["env"] = ENVIRONMENT
+        # Normalize for Grafana Env filter (prod/preprod/dev); keep body.env as sent.
+        env_label = _normalize_env(str(body.get("env") or ENVIRONMENT))
+        body["env"] = env_label
         platform = (ev.platform or body.get("platform") or "unknown").strip().lower()
         if platform not in {"web", "android", "ios"}:
             platform = "unknown"
         body["platform"] = platform
         line = json.dumps(body, default=str, separators=(",", ":"))
-        by_stream.setdefault((name, platform), []).append((_parse_ts_ns(ev.ts), line))
+        by_stream.setdefault((name, platform, env_label), []).append(
+            (_parse_ts_ns(ev.ts), line)
+        )
         accepted += 1
 
-    for (event_name, platform), lines in by_stream.items():
+    for (event_name, platform, env_label), lines in by_stream.items():
         await push_to_loki(
             lines=lines,
             labels={
@@ -133,7 +153,7 @@ async def ingest_product_events(batch: TelemetryBatch) -> dict[str, Any]:
                 "app": "am-modern-ui",
                 "event": event_name,
                 "platform": platform,
-                "env": ENVIRONMENT,
+                "env": env_label,
                 "application": "am-modern-ui",
             },
         )

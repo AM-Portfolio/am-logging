@@ -1,0 +1,18 @@
+﻿apiVersion: v1
+kind: Pod
+metadata:
+  name: curl-logging-smoke2
+  namespace: am-apps-prod
+spec:
+  restartPolicy: Never
+  containers:
+  - name: curl
+    image: curlimages/curl:8.5.0
+    command: ["sh","-c","curl -sS -w '\nHTTP:%{http_code}\n' -X POST https://am.asrax.in/logging/v1/telemetry/events -H 'Content-Type: application/json' --data-binary @/data/payload.json; echo"]
+    volumeMounts:
+    - name: payload
+      mountPath: /data
+  volumes:
+  - name: payload
+    configMap:
+      name: smoke-telemetry-payload

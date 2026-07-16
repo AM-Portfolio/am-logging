@@ -1,5 +1,6 @@
 # Production — public /logging for Flutter product telemetry
-environment: production
+# ENVIRONMENT must be "prod" to match Grafana Product Env filter (not "production")
+environment: prod
 replicaCount: 1
 
 resources:
@@ -29,7 +30,7 @@ vault:
         {{- end }}
 
 env:
-  ENVIRONMENT: production
+  ENVIRONMENT: prod
   LOG_LEVEL: INFO
   ALLOWED_ORIGINS: "https://am.asrax.in"
 
