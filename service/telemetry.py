@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
-LOKI_URL = os.getenv("LOKI_URL", "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push")
+LOKI_URL = os.getenv("LOKI_URL", "http://monitoring-loki.monitoring.svc.cluster.local:3100/loki/api/v1/push")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "preprod")
 
 _ENV_ALIASES = {
@@ -27,7 +27,11 @@ _ENV_ALIASES = {
 
 
 def _normalize_env(raw: str) -> str:
+    """Map client/server env strings onto Grafana Product Env values."""
     key = (raw or "").strip().lower()
+    # Flutter falls back to "default" when build env is unset — use server ENVIRONMENT.
+    if key in {"", "default", "unknown"}:
+        key = (ENVIRONMENT or "").strip().lower()
     return _ENV_ALIASES.get(key, key or "unknown")
 
 
@@ -99,7 +103,9 @@ async def push_to_loki(
 
 
 def _ns_now() -> str:
-    return str(int(datetime.datetime.utcnow().timestamp() * 1e9))
+    # Use timezone-aware UTC. Naive utcnow().timestamp() is wrong when TZ!=UTC
+    # (pod TZ=Asia/Kolkata shifts Loki timestamps ~5.5h behind → reject_old_samples).
+    return str(int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1e9))
 
 
 def _parse_ts_ns(ts: Optional[str]) -> str:

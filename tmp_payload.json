@@ -1,1 +1,0 @@
-{"events":[{"event":"session_start","platform":"web","env":"prod","anon_id":"smoke-fix-2","session_id":"s2"},{"event":"screen_view","platform":"web","env":"prod","anon_id":"smoke-fix-2","session_id":"s2","section":"dashboard","screen":"home"},{"event":"feature_action","platform":"android","env":"prod","anon_id":"smoke-and-1","session_id":"s3","action":"tap"}]}

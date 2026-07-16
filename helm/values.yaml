@@ -1,4 +1,5 @@
 # am-logging — base Helm values (universal-chart via am-pipelines)
+# ENVIRONMENT must be one of: dev | preprod | prod (Grafana Product Env filter)
 global:
   image:
     registry: ghcr.io/am-portfolio
@@ -48,7 +49,7 @@ vault:
 
 env:
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"
-  LOKI_URL: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+  LOKI_URL: "http://monitoring-loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
   LOG_LEVEL: INFO
   TZ: Asia/Kolkata
 
