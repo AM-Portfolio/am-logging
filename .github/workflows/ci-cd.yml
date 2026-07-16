@@ -76,6 +76,7 @@ jobs:
           helm upgrade --install am-logging ./helm `
             --namespace am-apps-preprod `
             --create-namespace `
+            -f ./helm/values.preprod.yaml `
             --set global.image.registry="${{ env.REGISTRY }}/${{ env.OWNER }}" `
             --set global.image.tag="${{ github.run_id }}"
 
