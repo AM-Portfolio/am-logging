@@ -24,6 +24,41 @@ paths:
         '400':
           description: Invalid log format
 
+  /telemetry/events:
+    post:
+      summary: Ingest Flutter product / RUM events
+      operationId: ingestTelemetry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [event]
+                    properties:
+                      event:
+                        type: string
+                        enum: [screen_view, api_timing, boot_rum, feature_action, session_start, auth_logout]
+                      anon_id: { type: string }
+                      session_id: { type: string }
+                      user_id: { type: string }
+                      section: { type: string }
+                      screen: { type: string }
+                      duration_ms: { type: number }
+                      props: { type: object }
+      responses:
+        '202':
+          description: Events accepted and pushed to Loki
+        '422':
+          description: Invalid batch
+
 components:
   schemas:
     LogEntry:

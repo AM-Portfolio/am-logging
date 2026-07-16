@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any, List
 from enum import Enum
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Path, Body, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 import redis.asyncio as redis
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,6 +18,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(title="AM Centralized Logging Service", version="1.0.0")
+
+# Browser product telemetry (Flutter) — public ingest; restrict via ingress + rate limits later
+_allowed = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed if _allowed != ["*"] else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Plane A — Prometheus /metrics + OTEL (sampling from Vault)
+from plane_a import setup_plane_a
+
+setup_plane_a(app, application="am-logging")
 
 @app.on_event("startup")
 async def startup_event():
@@ -188,7 +204,24 @@ async def distribute_log(log_data: dict):
             print(f"Failed to persist to MongoDB: {e}")
     
     # 3. Push to Loki (Technical track)
-    print(f"Loki push simulated for: {masked_log['trace_id']}")
+    try:
+        from telemetry import push_to_loki
+
+        line = json.dumps(masked_log, default=str, separators=(",", ":"))
+        ts_ns = str(int(datetime.datetime.utcnow().timestamp() * 1e9))
+        await push_to_loki(
+            lines=[(ts_ns, line)],
+            labels={
+                "job": "am-logging",
+                "service": str(masked_log.get("service", "unknown")),
+                "log_type": str(masked_log.get("log_type", "TECHNICAL")),
+                "level": str(masked_log.get("level", "INFO")),
+                "env": ENVIRONMENT,
+                "application": "am-logging",
+            },
+        )
+    except Exception as e:
+        print(f"Loki push failed for {masked_log.get('trace_id')}: {e}")
 
 # --- Endpoints ---
 @app.post("/v1/logs", 
@@ -243,6 +276,26 @@ async def ingest_log(log: LogEntry, background_tasks: BackgroundTasks):
     background_tasks.add_task(distribute_log, log_dict)
     
     return {"status": "accepted", "trace_id": log_dict["trace_id"]}
+
+
+@app.post(
+    "/v1/telemetry/events",
+    status_code=202,
+    summary="Ingest Flutter product telemetry",
+    description="Batch product events (screen_view, api_timing, boot_rum, feature_action) → Loki.",
+    tags=["Telemetry"],
+)
+async def ingest_telemetry(batch: dict = Body(...)):
+    """Accept Flutter RUM / product events and push them to Loki for Product dashboards."""
+    from telemetry import TelemetryBatch, ingest_product_events
+
+    try:
+        parsed = TelemetryBatch.model_validate(batch)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    result = await ingest_product_events(parsed)
+    return result
+
 
 @app.put("/v1/logs/{trace_id}", 
           status_code=200,

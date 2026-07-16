@@ -26,6 +26,8 @@ global:
       redis:   "secret/data/am-logging/local/redis"
       mongodb: "secret/data/am-logging/local/mongodb"
       loki:    "secret/data/am-logging/local/loki"
+      # Sampling — cluster SoT (override per env in values.<env>.yaml if present)
+      otel:    "apps/data/preprod/infra/observability"
 
 # Service-specific configuration
 replicaCount: 1
@@ -47,3 +49,21 @@ resources:
   limits:
     memory: "256Mi"
     cpu: "300m"
+
+# Plane A — Prometheus scrape (path /metrics on container port)
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+# Non-secret OTEL endpoint; sampling from Vault apps/data/{env}/infra/observability
+env:
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"
+  LOKI_URL: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+
+# Public path for Flutter product telemetry (strip /logging → /v1/telemetry/events)
+ingress:
+  enabled: false
+  className: "traefik"
+  annotations: {}
+  hosts: []
