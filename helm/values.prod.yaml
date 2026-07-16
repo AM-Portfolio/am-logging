@@ -1,28 +1,38 @@
-# Preprod — public /logging for Flutter product telemetry
-environment: preprod
+# Production — public /logging for Flutter product telemetry
+# ENVIRONMENT must be "prod" to match Grafana Product Env filter (not "production")
+environment: prod
 replicaCount: 1
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
 
 vault:
   enabled: true
   secretPaths:
     otel:
-      path: "apps/data/preprod/infra/observability"
+      path: "apps/data/prod/infra/observability"
     mongodb:
-      path: "apps/data/preprod/infra/mongodb"
+      path: "apps/data/prod/infra/mongodb"
       template: |
-        {{- with secret "apps/data/preprod/infra/mongodb" -}}
+        {{- with secret "apps/data/prod/infra/mongodb" -}}
         export MONGO_URL="mongodb://{{ .Data.data.username }}:{{ .Data.data.password }}@mongodb.infra.svc.cluster.local:27017/am_analytics?authSource=admin"
         {{- end }}
     redis:
-      path: "apps/data/preprod/infra/redis"
+      path: "apps/data/prod/infra/redis"
       template: |
-        {{- with secret "apps/data/preprod/infra/redis" -}}
+        {{- with secret "apps/data/prod/infra/redis" -}}
         export REDIS_URL="redis://:{{ .Data.data.password }}@{{ .Data.data.host }}:{{ .Data.data.port }}/0"
         {{- end }}
 
 env:
-  ENVIRONMENT: preprod
-  ALLOWED_ORIGINS: "http://localhost:3000,https://am-preprod.asrax.in"
+  ENVIRONMENT: prod
+  LOG_LEVEL: INFO
+  ALLOWED_ORIGINS: "https://am.asrax.in"
 
 ingress:
   enabled: true
@@ -31,10 +41,10 @@ ingress:
     kubernetes.io/ingress.class: "traefik"
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.middlewares: >-
-      am-apps-preprod-global-cors@kubernetescrd,
-      am-apps-preprod-strip-prefix-apps@kubernetescrd
+      am-apps-prod-global-cors@kubernetescrd,
+      am-apps-prod-strip-prefix-apps@kubernetescrd
   hosts:
-    - host: am-preprod.asrax.in
+    - host: am.asrax.in
       paths:
         - path: /logging
           pathType: Prefix

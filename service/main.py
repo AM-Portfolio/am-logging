@@ -41,7 +41,7 @@ async def startup_event():
 # --- Configuration ---
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis-service.infra.svc.cluster.local:6379/0")
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb-service.infra.svc.cluster.local:27017")
-LOKI_URL = os.getenv("LOKI_URL", "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push")
+LOKI_URL = os.getenv("LOKI_URL", "http://monitoring-loki.monitoring.svc.cluster.local:3100/loki/api/v1/push")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "preprod")
 
 # --- Redis & Mongo Clients ---
@@ -208,7 +208,7 @@ async def distribute_log(log_data: dict):
         from telemetry import push_to_loki
 
         line = json.dumps(masked_log, default=str, separators=(",", ":"))
-        ts_ns = str(int(datetime.datetime.utcnow().timestamp() * 1e9))
+        ts_ns = str(int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1e9))
         await push_to_loki(
             lines=[(ts_ns, line)],
             labels={
