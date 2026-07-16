@@ -282,12 +282,16 @@ async def ingest_log(log: LogEntry, background_tasks: BackgroundTasks):
     "/v1/telemetry/events",
     status_code=202,
     summary="Ingest Flutter product telemetry",
-    description="Batch product events (screen_view, api_timing, boot_rum, feature_action) → Loki.",
+    description="Batch product events → Loki (allowlisted + hashed ids).",
     tags=["Telemetry"],
 )
-async def ingest_telemetry(batch: dict = Body(...)):
+async def ingest_telemetry(request: Request, batch: dict = Body(...)):
     """Accept Flutter RUM / product events and push them to Loki for Product dashboards."""
-    from telemetry import TelemetryBatch, ingest_product_events
+    from telemetry import TelemetryBatch, check_rate_limit, ingest_product_events
+
+    client = request.client.host if request.client else "unknown"
+    if not check_rate_limit(client):
+        raise HTTPException(status_code=429, detail="telemetry rate limit exceeded")
 
     try:
         parsed = TelemetryBatch.model_validate(batch)
