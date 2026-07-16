@@ -1,17 +1,20 @@
 """Plane A observability: Prometheus /metrics + optional OTLP traces.
 
-Sampling rate comes from env TRACING_SAMPLING_PROBABILITY (Vault-injected).
+All Prometheus series carry an ``application`` label for Grafana discovery.
+Sampling rate comes from env ``TRACING_SAMPLING_PROBABILITY`` (Vault-injected).
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 
 logger = logging.getLogger(__name__)
+
+_EXCLUDED_PATHS = {"/metrics", "/health", "/router/health"}
 
 
 def setup_plane_a(app: FastAPI, *, application: str) -> None:
@@ -22,27 +25,42 @@ def setup_plane_a(app: FastAPI, *, application: str) -> None:
 
 def _setup_metrics(app: FastAPI, application: str) -> None:
     try:
-        from prometheus_client import Gauge
-        from prometheus_fastapi_instrumentator import Instrumentator, metrics
+        from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
     except ImportError:
-        logger.warning("prometheus deps missing — /metrics not enabled")
+        logger.warning("prometheus_client missing — /metrics not enabled")
         return
 
-    # Always-present series for Grafana discovery once non-JVM query lands.
-    Gauge(
-        "am_process_up",
-        "1 if the process is up",
-        labelnames=("application",),
-    ).labels(application=application).set(1)
+    up = Gauge("am_process_up", "1 if the process is up", ["application"])
+    up.labels(application=application).set(1)
 
-    Instrumentator(
-        should_group_status_codes=True,
-        excluded_handlers=["/metrics", "/health", "/router/health"],
-    ).add(
-        metrics.default(
-            custom_labels={"application": application},
-        )
-    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    requests_total = Counter(
+        "http_requests_total",
+        "Total HTTP requests",
+        ["application", "method", "handler", "status"],
+    )
+    request_duration = Histogram(
+        "http_request_duration_seconds",
+        "HTTP request latency in seconds",
+        ["application", "method", "handler"],
+    )
+
+    @app.middleware("http")
+    async def metrics_middleware(request: Request, call_next):
+        path = request.url.path
+        if path in _EXCLUDED_PATHS:
+            return await call_next(request)
+        start = time.perf_counter()
+        response = await call_next(request)
+        elapsed = time.perf_counter() - start
+        handler = path if len(path) < 120 else path[:117] + "..."
+        requests_total.labels(application, request.method, handler, str(response.status_code)).inc()
+        request_duration.labels(application, request.method, handler).observe(elapsed)
+        return response
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_endpoint() -> Response:
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
     logger.info("Prometheus /metrics enabled application=%s", application)
 
 
