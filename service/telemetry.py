@@ -196,6 +196,35 @@ def _screen_name(path: Optional[str]) -> Optional[str]:
     return tmpl.rstrip("/").split("/")[-1] or tmpl
 
 
+def _section_from_screen(path: Optional[str]) -> Optional[str]:
+    """Canonical section from route — corrects older Flutter clients that mapped
+    /app/subscription → profile."""
+    if not path:
+        return None
+    p = path.lower()
+    if p.startswith(("/login", "/register", "/forgot", "/reset", "/verify")):
+        return "auth"
+    if p.startswith("/app/dashboard"):
+        return "dashboard"
+    if p.startswith("/app/portfolio"):
+        return "portfolio"
+    if p.startswith("/app/trade"):
+        return "trade"
+    if p.startswith("/app/market"):
+        return "market"
+    if p.startswith("/app/doc-intel"):
+        return "docs"
+    if p.startswith("/app/ai-chat"):
+        return "ai"
+    if p.startswith("/app/analysis"):
+        return "analysis"
+    if p.startswith("/app/subscription"):
+        return "subscription"
+    if p.startswith("/app/profile"):
+        return "profile"
+    return None
+
+
 def _scrub_props(props: Any) -> Optional[dict[str, Any]]:
     if not isinstance(props, dict):
         return None
@@ -368,6 +397,11 @@ def sanitize_event(ev: ProductEvent) -> Optional[dict[str, Any]]:
             pid = _portfolio_id_from_path(screen)
             if pid:
                 body["portfolio_id"] = pid
+        # Prefer path-derived section so dashboards stay correct even when the
+        # client still tags /app/subscription as profile (pre-fix builds).
+        derived = _section_from_screen(screen)
+        if derived:
+            body["section"] = derived
 
     if body.get("path"):
         body["path"] = _sanitize_path(str(body["path"]))
@@ -383,11 +417,9 @@ def sanitize_event(ev: ProductEvent) -> Optional[dict[str, Any]]:
                 body.pop(id_key, None)
         else:
             # Kept raw (e.g. user_id) so dashboards can filter by the real value.
+            # Keep empty string so `| user_id=~".*"` still matches anonymous events.
             val = str(body[id_key]).strip()
-            if val:
-                body[id_key] = val[:128]
-            else:
-                body.pop(id_key, None)
+            body[id_key] = val[:128] if val else ""
 
     if "props" in body:
         scrubbed = _scrub_props(body["props"])
