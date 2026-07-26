@@ -50,6 +50,12 @@ vault:
 env:
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"
   LOKI_URL: "http://monitoring-loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+  # Salt for hashing telemetry ids (override via Vault in prod)
+  TELEMETRY_HASH_SALT: "am-product-telemetry-v1"
+  # Which id fields to hash. user_id kept RAW so dashboards can filter by the
+  # real user_id/portfolio_id passed in. Set to "user_id,anon_id,session_id" to hash all.
+  TELEMETRY_HASH_IDS: "anon_id,session_id"
+  TELEMETRY_RATE_LIMIT_PER_MIN: "120"
   LOG_LEVEL: INFO
   TZ: Asia/Kolkata
 
