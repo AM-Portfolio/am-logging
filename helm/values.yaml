@@ -29,6 +29,8 @@ config: {}
 
 vault:
   enabled: true
+  csi:
+    enabled: true
   secretPaths:
     otel:
       path: "apps/data/preprod/infra/observability"
@@ -36,16 +38,15 @@ vault:
         TRACING_SAMPLING_PROBABILITY: "TRACING_SAMPLING_PROBABILITY"
     mongodb:
       path: "apps/data/preprod/infra/mongodb"
-      template: |
-        {{- with secret "apps/data/preprod/infra/mongodb" -}}
-        export MONGO_URL="mongodb://{{ .Data.data.username }}:{{ .Data.data.password }}@mongodb.infra.svc.cluster.local:27017/am_analytics?authSource=admin"
-        {{- end }}
+      mappings:
+        MONGO_USERNAME: "username"
+        MONGO_PASSWORD: "password"
     redis:
       path: "apps/data/preprod/infra/redis"
-      template: |
-        {{- with secret "apps/data/preprod/infra/redis" -}}
-        export REDIS_URL="redis://:{{ .Data.data.password }}@{{ .Data.data.host }}:{{ .Data.data.port }}/0"
-        {{- end }}
+      mappings:
+        REDIS_PASSWORD: "password"
+        REDIS_HOST: "host"
+        REDIS_PORT: "port"
 
 env:
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"

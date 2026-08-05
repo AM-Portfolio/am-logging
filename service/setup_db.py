@@ -3,7 +3,16 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 
 async def setup_mongodb():
-    mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+    mongo_url = os.getenv("MONGO_URL")
+    if not mongo_url:
+        mongo_host = os.getenv("MONGO_HOST", "mongodb.infra.svc.cluster.local")
+        mongo_port = os.getenv("MONGO_PORT", "27017")
+        mongo_user = os.getenv("MONGO_USERNAME", "")
+        mongo_pass = os.getenv("MONGO_PASSWORD", "")
+        if mongo_user and mongo_pass:
+            mongo_url = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_host}:{mongo_port}/am_analytics?authSource=admin"
+        else:
+            mongo_url = f"mongodb://{mongo_host}:{mongo_port}"
     client = AsyncIOMotorClient(mongo_url)
     db = client.am_analytics
     

@@ -39,10 +39,31 @@ async def startup_event():
     await test_db_connection()
 
 # --- Configuration ---
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis-service.infra.svc.cluster.local:6379/0")
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb-service.infra.svc.cluster.local:27017")
 LOKI_URL = os.getenv("LOKI_URL", "http://monitoring-loki.monitoring.svc.cluster.local:3100/loki/api/v1/push")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "preprod")
+
+# Construct Redis URL
+REDIS_URL = os.getenv("REDIS_URL")
+if not REDIS_URL:
+    redis_host = os.getenv("REDIS_HOST", "redis-master.infra.svc.cluster.local")
+    redis_port = os.getenv("REDIS_PORT", "6379")
+    redis_password = os.getenv("REDIS_PASSWORD", "")
+    if redis_password:
+        REDIS_URL = f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
+    else:
+        REDIS_URL = f"redis://{redis_host}:{redis_port}/0"
+
+# Construct MongoDB URL
+MONGO_URL = os.getenv("MONGO_URL")
+if not MONGO_URL:
+    mongo_host = os.getenv("MONGO_HOST", "mongodb.infra.svc.cluster.local")
+    mongo_port = os.getenv("MONGO_PORT", "27017")
+    mongo_user = os.getenv("MONGO_USERNAME", "")
+    mongo_pass = os.getenv("MONGO_PASSWORD", "")
+    if mongo_user and mongo_pass:
+        MONGO_URL = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_host}:{mongo_port}/am_analytics?authSource=admin"
+    else:
+        MONGO_URL = f"mongodb://{mongo_host}:{mongo_port}"
 
 # --- Redis & Mongo Clients ---
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
