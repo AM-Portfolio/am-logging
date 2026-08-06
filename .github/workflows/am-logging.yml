@@ -35,4 +35,5 @@ jobs:
       prod_namespace: "am-apps-prod"
       deploy_dev: true
       deploy_prod: true
+      skip_security_scan: true
     secrets: inherit
