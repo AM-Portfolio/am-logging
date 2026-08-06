@@ -29,6 +29,7 @@ config: {}
 
 vault:
   enabled: true
+  role: "am-backend-role"
   csi:
     enabled: true
   secretPaths:
