@@ -35,4 +35,5 @@ jobs:
       prod_namespace: "am-apps-prod"
       deploy_dev: true
       deploy_prod: true
+      scan_runner_labels: '["ubuntu-latest"]'
     secrets: inherit
