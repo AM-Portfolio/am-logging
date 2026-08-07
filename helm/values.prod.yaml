@@ -1,4 +1,4 @@
-# Production — public /logging for Flutter product telemetry
+# Production â€” public /logging for Flutter product telemetry
 # ENVIRONMENT must be "prod" to match Grafana Product Env filter (not "production")
 environment: prod
 replicaCount: 1
@@ -48,3 +48,7 @@ ingress:
       paths:
         - path: /logging
           pathType: Prefix
+
+global:
+  image:
+    tag: "29543817307"

@@ -1,0 +1,21 @@
+apiVersion: am.argocd/v1
+kind: ServiceDeploy
+service: am-logging
+enabled: true
+owners: logging
+source:
+  repo: am-logging
+  path: argocd.yaml
+chart:
+  repoURL: https://github.com/AM-Portfolio/am-pipelines.git
+  path: helm/universal-chart
+  targetRevision: main
+helm:
+  releaseName: am-logging
+  valuesPath: helm
+valuesRepoURL: https://github.com/AM-Portfolio/am-logging.git
+valuesTargetRevision: main
+envs:
+  prod:
+    enabled: true
+    namespace: am-apps-prod
